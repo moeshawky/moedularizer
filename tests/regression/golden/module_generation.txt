@@ -1,0 +1,4 @@
+"""Module test_module — functions."""
+
+def foo():
+    pass

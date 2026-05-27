@@ -1,0 +1,4 @@
+Clusters: 3
+  bar: ['bar']
+  baz: ['baz']
+  foo: ['foo']

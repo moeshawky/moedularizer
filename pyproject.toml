@@ -1,0 +1,35 @@
+[project]
+name = "moedularizer"
+version = "0.1.0"
+description = "Automatically modularize monolithic Python files"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+moedularizer = "moedularizer.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["moedularizer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "smoke: Smoke tests (G-HALL, G-SEC)",
+    "unit: Unit tests (G-EDGE, G-ERR)",
+    "integration: Integration tests (G-CTX)",
+    "property: Property tests (G-SEM)",
+    "regression: Regression tests (G-DRIFT)",
+]

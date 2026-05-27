@@ -1,0 +1,8 @@
+"""test_package — auto-modularized package."""
+from test_package.bar import bar
+from test_package.foo import foo
+
+__all__ = [
+    "bar",
+    "foo",
+]

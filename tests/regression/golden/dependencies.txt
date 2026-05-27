@@ -1,0 +1,5 @@
+Dependencies: 4
+  foo -> bar (calls)
+  foo -> bar (uses_constant)
+  bar -> baz (calls)
+  bar -> baz (uses_constant)

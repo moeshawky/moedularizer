@@ -1,0 +1,5 @@
+Modules: 4
+  bar: 1 symbols
+  baz: 1 symbols
+  foo: 1 symbols
+  __init__: 0 symbols

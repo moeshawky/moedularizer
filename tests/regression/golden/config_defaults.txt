@@ -1,0 +1,5 @@
+package_name: modularized
+max_symbols_per_module: 10
+min_symbols_per_module: 1
+use_absolute_imports: True
+dry_run: False

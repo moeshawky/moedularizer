@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.cache/
+.pytest_cache/
+.codegraph/
+.ix/
+.ruff_cache/
+.sniper/
+
+# Build artifacts
+build/
+dist/
+*.egg
+*.tar.gz
+*.whl
+
+# OS/editor detritus
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Secrets & environment
+.env
+.env.*
+*.local
+
+# Python version pinning
+.python-version
+
+# Logs
+*.log
+
+# AI annotation proposals (RNA layer — reviewed before applying as DNA)
+.annotations/
