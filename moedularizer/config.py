@@ -65,7 +65,12 @@ class MoedularizerConfig:
     min_python_version: tuple = (3, 8)     # minimum supported Python version
 
     def validate(self) -> List[str]:
-        """Return list of validation errors."""
+        """Return list of validation errors.
+
+        Gaps not checked here: output_dir writability (runtime concern),
+        max_symbols_per_module <= 0, force_groupings vs force_separations
+        conflicts, max_recursion_depth positivity.
+        """
         errors: List[str] = []
         if self.source_file and not self.source_file.exists():
             errors.append(f"Source file not found: {self.source_file}")

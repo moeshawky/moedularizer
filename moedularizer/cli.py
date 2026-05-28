@@ -22,6 +22,13 @@ from moedularizer.validator import Validator
 
 
 def main():
+    """Run the full modularization pipeline from CLI.
+
+    Currently assembles the pipeline inline (analyze → cluster → generate →
+    validate → write). Moedularizer.modularize() and Moedularizer.write()
+    (__init__.py:72, :116) provide the canonical pipeline — main() should
+    delegate to Moedularizer instead of inlining all components.
+    """
     parser = argparse.ArgumentParser(
         description="Modularize a monolithic Python file into a package.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -212,6 +219,9 @@ Examples:
                 print(f"Warning: Symbol '{sym_name}' in force_groupings['{group_name}'] not found in source", file=sys.stderr)
 
     # Convert external_imports from list of tuples to dict
+    # This conversion is duplicated in Moedularizer.modularize()
+    # (__init__.py:93-99) and 5 integration tests. If main() delegates
+    # to Moedularizer, this copy goes away.
     external_imports_dict = {}
     for module_path, names in external_imports:
         if module_path not in external_imports_dict:

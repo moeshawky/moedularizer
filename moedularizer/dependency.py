@@ -49,7 +49,15 @@ class DependencyGraph:
         return nodes
 
     def find_cycles(self) -> List[List[str]]:
-        """Find all cycles in the dependency graph using iterative DFS."""
+        """Find all cycles in the dependency graph using iterative DFS.
+
+        Known limitations:
+        - rec_stack is shared across all paths — if A→B→A and C→B both
+          reach B, C's traversal may report a false positive cycle.
+        - Cycle construction duplicates the node when node == path[cycle_start].
+        - Depth limit breaks only the inner for loop; outer DFS continues
+          with inconsistent coverage.
+        """
         cycles = []
         visited = set()
         rec_stack = set()
@@ -103,6 +111,10 @@ class DependencyGraph:
         """
         Topological sort of symbols using Kahn's algorithm.
         Raises ValueError if cycles exist.
+
+        queue.pop(0) is O(n) on Python lists — each pop shifts remaining
+        elements. Use collections.deque for O(1) popleft. Currently
+        acceptable for typical module counts (<50).
         """
         in_degree: Dict[str, int] = defaultdict(int)
         all_nodes = self.all_symbols()
@@ -175,7 +187,11 @@ class DependencyGraph:
 
 
 def build_graph(symbols: List[Symbol], dependencies: List[Dependency]) -> DependencyGraph:
-    """Build a dependency graph from extracted symbols and dependencies."""
+    """Build a dependency graph from extracted symbols and dependencies.
+
+    The `symbols` parameter is currently unused — only `dependencies`
+    populate the graph. Reserved for future validation of symbol coverage.
+    """
     graph = DependencyGraph()
     for dep in dependencies:
         graph.add_dependency(dep)

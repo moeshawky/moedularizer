@@ -64,6 +64,14 @@ class Validator:
         """
         Check for circular imports between modules.
         Returns True if cycles found.
+
+        Format dependency: parses import lines matching 'from X import Y'
+        format only (line 82). Non-init module imports_needed entries use
+        raw symbol names without 'from'/'import' keywords and are silently
+        skipped. This means circular dependencies between non-init modules
+        are never detected — only init module imports are checked, which
+        form a star topology (init imports from each non-init module) and
+        rarely contain circuits.
         """
         # Build module dependency graph from import statements
         module_deps: Dict[str, Set[str]] = {}
@@ -95,6 +103,11 @@ class Validator:
         has_cycles = False
 
         def dfs_iterative(start: str) -> bool:
+            # Known limitation: rec_stack is a set shared across all DFS
+            # paths, not per-path. A node in rec_stack from one path can
+            # trigger a false positive cycle if reached by a different
+            # path. path.index(node) at line 112 may ValueError if node
+            # is in rec_stack but not in the current path.
             stack = [(start, False)]
             path = []
             found_cycle = False
@@ -176,7 +189,11 @@ class Validator:
         modules: List[Module],
         result: ModularizationResult,
     ) -> None:
-        """Check that all symbols are assigned to exactly one module."""
+        """Check that all symbols are assigned to exactly one module.
+
+        Returns None — callers must parse result.warnings strings to
+        detect duplicate coverage programmatically. No boolean flag returned.
+        """
         symbol_counts: Dict[str, int] = {}
         for module in modules:
             if module.is_init:
@@ -212,6 +229,10 @@ class Validator:
             if module.is_init:
                 continue
             sym_count = len([s for s in module.symbols if s.kind != SymbolKind.IMPORT])
+            # Hardcoded threshold 20 differs from config.max_symbols_per_module
+            # (default 10). The validator warns at >20 while the clusterer caps
+            # at config.max_symbols_per_module. These serve different purposes:
+            # config is a hard clustering limit, validator is a warning.
             if sym_count > 20:
                 result.warnings.append(
                     f"Module '{module.name}' has {sym_count} symbols — consider splitting"

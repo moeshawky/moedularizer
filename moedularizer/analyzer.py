@@ -70,7 +70,14 @@ class SymbolExtractor(ast.NodeVisitor):
         return None
 
     def _get_decorators(self, node: ast.AST) -> Tuple[str, ...]:
-        """Extract decorator source strings from a node."""
+        """Extract decorator source strings from a node.
+
+        Falls back to ast.dump() for complex decorators — broad except
+        Exception at line 80 swallows failures silently. The ast.dump output
+        is raw AST (e.g. "Name(id='dataclass', ctx=Load())"), not valid
+        Python decorator syntax, but the clusterer's substring check
+        ('dataclass' in dec) still matches.
+        """
         decorators = []
         if hasattr(node, 'decorator_list'):
             for dec in node.decorator_list:

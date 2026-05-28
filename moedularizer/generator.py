@@ -31,7 +31,25 @@ class CodeGenerator:
         module_level_code: Optional[str] = None,
         graph: Optional[DependencyGraph] = None,
     ) -> List[Module]:
-        """Generate modules from clusters."""
+        """Generate modules from clusters.
+
+        Parameters:
+            clusters: Symbol groupings from Clusterer.
+            symbol_map: Dict mapping symbol names to Symbol objects.
+            cluster_map: Dict mapping symbol names to cluster names, used
+                at line 52 to resolve cross-module dependency targets.
+            external_imports: Dict of module_path -> [imported names].
+            source: Original source text (for filtering imports).
+            dunder_all: Explicit __all__ from the original source file,
+                takes precedence over auto-detected exports.
+            module_level_code: Imperative code extracted from module level.
+            graph: DependencyGraph, used at line 49-50 to verify import
+                targets exist via graph.all_symbols().
+
+        Returns:
+            List[Module] with guaranteed __init__ module appended as the
+            final element.
+        """
         modules = []
 
         # Group symbols by cluster
@@ -161,7 +179,13 @@ class CodeGenerator:
         return f"Module {module.name}."
 
     def _add_imports(self, module: Module, lines: List[str]) -> None:
-        """Add import statements."""
+        """Add import statements.
+
+        stdlib_modules is a hardcoded set — only checks the first component
+        of a dotted import path (line 189). Missing some stdlib modules
+        (e.g. contextlib, csv, xml) and may false-positive on same-named
+        third-party packages.
+        """
         stdlib_modules = {
             "abc", "argparse", "ast", "asyncio", "collections", "copy",
             "dataclasses", "datetime", "enum", "functools", "glob", "hashlib",
@@ -246,7 +270,11 @@ class CodeGenerator:
         external_imports: Dict[str, List[str]],
         source: str,
     ) -> List[Tuple[str, List[str]]]:
-        """Filter external imports to only those used by this module's symbols."""
+        """Filter external imports to only those used by this module's symbols.
+
+        String literal stripping at lines 254-257 uses regex that does not
+        handle escaped quotes inside strings or nested triple-quoted strings.
+        """
         symbol_source = "\n".join(s.source for s in symbols if s.source)
 
         # Strip string literals to avoid false positive matches
@@ -272,7 +300,12 @@ class CodeGenerator:
         return list(filtered.items())
 
     def _sanitize_name(self, name: str) -> str:
-        """Sanitize name to valid Python identifier."""
+        """Sanitize name to valid Python identifier.
+
+        Duplicate of Clusterer._sanitize_name at clusterer.py:408 — update
+        both if changing. Re-sanitization is safe (already-sanitized names
+        produce the same result), but divergence is a maintenance risk.
+        """
         name = name.replace("/", "_").replace("\\", "_").replace("..", "_")
         name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
         if not name or not name.isidentifier():

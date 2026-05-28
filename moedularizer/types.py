@@ -30,12 +30,15 @@ class Symbol:
     """A named symbol in a Python module."""
     name: str
     kind: SymbolKind
-    source: str           # full source text
+    source: str           # full source text including line breaks
     lineno: int           # start line (1-indexed)
-    end_lineno: int       # end line (1-indexed, inclusive)
+    end_lineno: int       # end line (1-indexed, inclusive; defaults to lineno if unknown)
     docstring: Optional[str] = None
-    decorators: Tuple[str, ...] = ()  # decorator source strings
+    decorators: Tuple[str, ...] = ()  # raw decorator source strings (not resolved names)
 
+    # Hash/eq on name only — intentional for the clustering pipeline where
+    # cluster.symbols is Set[str]. set(symbols) loses distinct symbols with
+    # name collisions, but names are unique within a module.
     def __hash__(self):
         return hash(self.name)
 
@@ -69,7 +72,7 @@ class Module:
     name: str             # e.g. "key_patterns"
     symbols: List[Symbol] = field(default_factory=list)
     dependencies: List[Dependency] = field(default_factory=list)
-    imports_needed: List[str] = field(default_factory=list)  # ordered, not a set
+    imports_needed: List[str] = field(default_factory=list)  # sorted for determinism; not insertion-ordered
     external_imports: List[str] = field(default_factory=list)  # stdlib/third-party
     is_init: bool = False
     all_exports: List[str] = field(default_factory=list)  # for __all__

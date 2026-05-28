@@ -129,6 +129,9 @@ class Clusterer:
                 sym = symbol_map.get(name)
                 if sym and sym.kind == SymbolKind.CLASS:
                     # Check if it's a dataclass by looking for @dataclass decorator
+                    # Substring check: 'dataclass' in dec produces false positives
+                    # (e.g. @not_a_dataclass) and the ast.dump fallback from
+                    # analyzer.py:82 still matches thanks to the substring.
                     if any("@dataclass" in dec or "dataclass" in dec for dec in sym.decorators):
                         dataclass_symbols.add(name)
                         used.add(name)
@@ -299,7 +302,13 @@ class Clusterer:
         cluster: Cluster,
         graph: DependencyGraph,
     ) -> None:
-        """Compute internal and external dependencies for a cluster."""
+        """Compute internal and external dependencies for a cluster.
+
+        All dependencies are tagged as DependencyType.CALLS (line 311:
+        '# simplified'). This is intentional — clustering only needs
+        dependency existence, not type precision. The validator uses the
+        full graph separately with preserved types.
+        """
         cluster.internal_deps = []
         cluster.external_deps = []
 
@@ -409,6 +418,10 @@ class Clusterer:
         """
         Sanitize a module name to prevent path traversal and ensure
         it's a valid Python identifier.
+
+        Converts to lowercase (PEP 8 module naming). Duplicate of
+        CodeGenerator._sanitize_name at generator.py:274 — update both
+        if changing.
         """
         # Remove any path separators or traversal attempts
         name = name.replace('/', '_').replace('\\', '_').replace('..', '_')
