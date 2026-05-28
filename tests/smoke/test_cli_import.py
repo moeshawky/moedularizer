@@ -1,5 +1,9 @@
 """G-HALL: Test that CLI module imports correctly."""
 
+import pytest
+
+pytestmark = pytest.mark.smoke
+
 
 def test_cli_import():
     """Verify cli.py can be imported without errors."""

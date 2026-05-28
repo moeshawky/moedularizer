@@ -7,6 +7,8 @@ LLMs produce plausible but wrong logic - need property-based testing.
 
 import pytest
 from moedularizer.analyzer import Analyzer
+
+pytestmark = pytest.mark.property
 from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig
 from moedularizer.dependency import build_graph
@@ -443,3 +445,105 @@ from pathlib import Path
         assert isinstance(module_path, str)
         assert isinstance(names, list)
         assert len(names) > 0
+
+
+# ── Property-based tests using hypothesis ──────────────────────────────
+
+from hypothesis import given, strategies as st
+
+# Valid Python identifiers (not keywords)
+PYTHON_KEYWORDS = frozenset({
+    "False", "None", "True", "and", "as", "assert", "async", "await",
+    "break", "class", "continue", "def", "del", "elif", "else", "except",
+    "finally", "for", "from", "global", "if", "import", "in", "is",
+    "lambda", "nonlocal", "not", "or", "pass", "raise", "return",
+    "try", "while", "with", "yield",
+})
+
+valid_identifier = st.from_regex(r"\A[a-zA-Z_][a-zA-Z0-9_]*\Z").filter(
+    lambda s: s not in PYTHON_KEYWORDS
+)
+
+
+@given(func_name=valid_identifier)
+def test_symbol_extraction_roundtrip_property(func_name):
+    """Generate source with a function named func_name, analyze, verify \
+correct Symbol name and Function kind are extracted."""
+    source = f"def {func_name}():\n    pass\n"
+    analyzer = Analyzer()
+    symbols, _, _, _, _ = analyzer.analyze(source, filename="test.py")
+    assert len(symbols) == 1
+    assert symbols[0].name == func_name
+    assert symbols[0].kind == SymbolKind.FUNCTION
+
+
+@given(
+    names=st.lists(st.text(alphabet=st.characters(min_codepoint=97, max_codepoint=122), min_size=1, max_size=8), min_size=2, max_size=8, unique=True),
+)
+def test_clustering_idempotent_property(names):
+    """Cluster a set of symbols twice and verify identical results."""
+    from moedularizer.types import Symbol, Dependency, DependencyType
+    from moedularizer.config import MoedularizerConfig
+    from moedularizer.clusterer import Clusterer
+
+    symbols = [
+        Symbol(
+            name=n, kind=SymbolKind.FUNCTION,
+            source=f"def {n}(): pass", lineno=1, end_lineno=2,
+        )
+        for n in names
+    ]
+    dependencies = []
+    if len(names) >= 2:
+        dependencies.append(Dependency(
+            source=names[0], target=names[1], dep_type=DependencyType.CALLS,
+        ))
+
+    config = MoedularizerConfig(max_symbols_per_module=5)
+    clusterer = Clusterer(config)
+    clusters_a = clusterer.cluster(symbols, dependencies)
+    clusters_b = clusterer.cluster(symbols, dependencies)
+
+    def cluster_fingerprint(clusters):
+        return tuple(sorted(
+            (c.name, tuple(sorted(c.symbols))) for c in clusters
+        ))
+
+    assert cluster_fingerprint(clusters_a) == cluster_fingerprint(clusters_b)
+
+
+@given(
+    func_name=valid_identifier.filter(lambda s: s.lower() not in {"import", "from", "class", "def"}),
+)
+def test_generator_preserves_source_property(func_name):
+    """Given a function source, render it into a module, verify source \
+appears exactly once and is not mutated."""
+    from moedularizer.generator import CodeGenerator
+    from moedularizer.config import MoedularizerConfig
+    from moedularizer.types import Module, Symbol, SymbolKind
+
+    source_code = f"def {func_name}():\n    pass"
+    symbol = Symbol(
+        name=func_name,
+        kind=SymbolKind.FUNCTION,
+        source=source_code,
+        lineno=1,
+        end_lineno=2,
+    )
+    config = MoedularizerConfig()
+    generator = CodeGenerator(config)
+    module = Module(name="test_mod")
+    module.symbols = [symbol]
+    rendered = generator.render_module(module)
+
+    assert source_code in rendered
+    # Source must appear exactly once (not duplicated)
+    assert rendered.count(source_code) == 1
+    # Verify the source line position is correct
+    idx = rendered.index(source_code)
+    assert idx > 0  # Not at start (docstring comes first)
+    # Verify the source is not mutated — the exact substring matches
+    before = rendered[:idx]
+    after = rendered[idx + len(source_code):]
+    recon = before + source_code + after
+    assert recon == rendered

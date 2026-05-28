@@ -8,6 +8,8 @@ LLMs typically work in isolation but fail when integrated.
 import pytest
 import tempfile
 from pathlib import Path
+
+pytestmark = pytest.mark.integration
 from moedularizer import Moedularizer, MoedularizerConfig
 from moedularizer.analyzer import Analyzer
 from moedularizer.clusterer import Clusterer
@@ -545,3 +547,41 @@ def bar():
         assert len(result.clusters) > 0, "Should have clusters"
         assert len(result.errors) == 0, f"Unexpected errors: {result.errors}"
         assert len(result.preserved_exports) > 0, "Should have preserved exports"
+
+
+def test_cli_main_end_to_end():
+    """Invoke cli.main() with patched sys.argv, verify pipeline runs and \
+produces output files."""
+    import sys
+    from moedularizer.cli import main
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        source_file = Path(tmpdir) / "monolith.py"
+        source_file.write_text("""
+def hello():
+    return world()
+
+def world():
+    return 42
+""")
+        output_dir = Path(tmpdir) / "output"
+
+        original_argv = sys.argv
+        try:
+            sys.argv = [
+                "moedularizer",
+                str(source_file),
+                str(output_dir),
+                "--package-name", "e2e_pkg",
+                "--max-symbols", "2",
+            ]
+            main()
+        finally:
+            sys.argv = original_argv
+
+        assert output_dir.exists()
+        init_file = output_dir / "__init__.py"
+        assert init_file.exists()
+        init_content = init_file.read_text()
+        assert len(init_content) > 0
+        assert "e2e_pkg" in init_content

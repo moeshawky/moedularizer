@@ -7,6 +7,8 @@ This is the first gate - if imports fail, nothing else matters.
 
 import pytest
 
+pytestmark = pytest.mark.smoke
+
 
 def test_imports_exist():
     """G-HALL: Verify all imports exist (no hallucinated packages)."""

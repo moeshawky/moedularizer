@@ -7,6 +7,8 @@ LLM output drifts over time - need golden file comparison.
 
 import pytest
 from pathlib import Path
+
+pytestmark = pytest.mark.regression
 from moedularizer.analyzer import Analyzer
 from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig

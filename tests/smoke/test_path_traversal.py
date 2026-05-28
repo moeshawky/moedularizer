@@ -8,6 +8,8 @@ This is the second gate - security vulnerabilities compound everything else.
 import pytest
 import tempfile
 from pathlib import Path
+
+pytestmark = pytest.mark.smoke
 from moedularizer import Moedularizer, MoedularizerConfig
 
 

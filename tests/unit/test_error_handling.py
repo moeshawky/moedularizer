@@ -8,6 +8,8 @@ LLMs typically only handle happy paths and miss error paths.
 import pytest
 import tempfile
 from pathlib import Path
+
+pytestmark = pytest.mark.unit
 from moedularizer.analyzer import Analyzer
 from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig

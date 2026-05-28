@@ -7,6 +7,8 @@ LLMs systematically miss edge cases that humans rarely forget.
 
 import pytest
 from pathlib import Path
+
+pytestmark = pytest.mark.unit
 from moedularizer.analyzer import Analyzer
 from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig
@@ -416,3 +418,33 @@ def test_config_edge_cases():
     config = MoedularizerConfig(source_file=Path("/nonexistent/file.py"))
     errors = config.validate()
     assert len(errors) > 0
+
+
+SYMBOL_KIND_CASES = [
+    ("class Foo:\n    pass\n", SymbolKind.CLASS, "class Foo"),
+    ("def foo():\n    pass\n", SymbolKind.FUNCTION, "def foo"),
+    ("async def foo():\n    pass\n", SymbolKind.ASYNC_FUNCTION, "async def foo"),
+    ("FOO = 42\n", SymbolKind.CONSTANT, "FOO"),
+    ("import os\n", SymbolKind.IMPORT, "import os"),
+    ("from pathlib import Path\n", SymbolKind.IMPORT, "from pathlib import Path"),
+    ("def foo():\n    pass\n\nclass Bar:\n    pass\n", SymbolKind.FUNCTION, "def foo in mixed file"),
+    ("def foo():\n    pass\n\nclass Bar:\n    pass\n", SymbolKind.CLASS, "class Bar in mixed file"),
+]
+
+
+@pytest.mark.parametrize("source_snippet,expected_kind,description", SYMBOL_KIND_CASES)
+def test_symbol_kind_classification(source_snippet, expected_kind, description):
+    """Verify analyzer classifies symbols with the correct SymbolKind."""
+    analyzer = Analyzer()
+    symbols, _, _, _, _ = analyzer.analyze(source_snippet, filename="test.py")
+
+    if description == "class Bar in mixed file":
+        found = next(s for s in symbols if s.name == "Bar")
+    elif description == "def foo in mixed file":
+        found = next(s for s in symbols if s.name == "foo")
+    else:
+        assert len(symbols) > 0, f"No symbols found for: {description}"
+        found = symbols[0]
+
+    assert found.kind == expected_kind, \
+        f"Expected {expected_kind} for {description}, got {found.kind}"
