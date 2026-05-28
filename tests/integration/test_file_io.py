@@ -323,9 +323,14 @@ def test_dry_run_does_not_modify_files():
             graph=graph,
         )
 
-        # In dry-run mode, write_modules should check the flag
-        # The actual write operation checks config.dry_run
-        assert config.dry_run is True
+        # In dry-run mode, write_modules should return empty list
+        # and NOT create any files on disk
+        written = generator.write_modules(modules, output_dir)
+        assert written == []
+
+        # Verify no files were created in the output directory
+        output_contents = list(output_dir.iterdir())
+        assert len(output_contents) == 0, f"Expected no files, found: {output_contents}"
 
 
 def test_circular_import_detection_integration():
@@ -460,3 +465,83 @@ def baz():
 
         # Should preserve API
         assert len(result.errors) == 0
+
+
+def test_generator_cross_module_imports():
+    """G-CTX: Cross-module imports are generated for external_deps."""
+    from moedularizer.types import Cluster, Dependency, DependencyType, Symbol, SymbolKind
+
+    cluster_a = Cluster(name="module_a", symbols={"foo"})
+    cluster_a.external_deps = [
+        Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS)
+    ]
+    cluster_b = Cluster(name="module_b", symbols={"bar"})
+    cluster_b.external_deps = []
+
+    symbol_map = {
+        "foo": Symbol(name="foo", kind=SymbolKind.FUNCTION,
+                       source="def foo():\n    return bar()", lineno=1, end_lineno=2),
+        "bar": Symbol(name="bar", kind=SymbolKind.FUNCTION,
+                       source="def bar():\n    return 42", lineno=3, end_lineno=4),
+    }
+    cluster_map = {"foo": "module_a", "bar": "module_b"}
+
+    config = MoedularizerConfig(package_name="cross_pkg")
+    generator = CodeGenerator(config)
+
+    symbols = list(symbol_map.values())
+    deps = [
+        Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
+    ]
+    graph = build_graph(symbols, deps)
+
+    source = "def foo():\n    return bar()\n\ndef bar():\n    return 42\n"
+    modules = generator.generate(
+        [cluster_a, cluster_b], symbol_map, cluster_map, {}, source, graph=graph
+    )
+
+    module_a = next(m for m in modules if m.name == "module_a")
+    module_b = next(m for m in modules if m.name == "module_b")
+
+    assert "from cross_pkg.module_b import bar" in module_a.imports_needed, \
+        f"Expected cross-module import, got: {module_a.imports_needed}"
+    assert module_b.imports_needed == []
+
+
+def test_writer_output_dir_validation():
+    """G-ERR: Moedularizer.write() raises ValueError when output_dir is None."""
+    from moedularizer.types import ModularizationResult
+
+    config = MoedularizerConfig()
+    mod = Moedularizer(config)
+    result = ModularizationResult(modules=[], clusters=[])
+
+    with pytest.raises(ValueError, match="output_dir is not configured"):
+        mod.write(result)
+
+
+def test_modularize_programmatic_api():
+    """G-CTX: Moedularizer.modularize() produces correct ModularizationResult."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        source_file = Path(tmpdir) / "input.py"
+        source_file.write_text("""
+def foo():
+    return bar()
+
+def bar():
+    return 42
+""")
+        config = MoedularizerConfig(
+            source_file=source_file,
+            output_dir=Path(tmpdir) / "output",
+            package_name="prog",
+        )
+        mod = Moedularizer(config)
+        result = mod.modularize(source_file.read_text())
+
+        assert len(result.modules) > 0, "Should have generated modules"
+        assert len(result.clusters) > 0, "Should have clusters"
+        assert len(result.errors) == 0, f"Unexpected errors: {result.errors}"
+        assert len(result.preserved_exports) > 0, "Should have preserved exports"

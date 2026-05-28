@@ -314,9 +314,15 @@ def test_golden_dependency_graph():
     # Get golden output
     golden = load_golden_file("dependency_graph.txt")
 
+    # Read dependencies from graph object, not the input list
+    graph_deps = []
+    for sym in sorted(graph.all_symbols()):
+        for target in sorted(graph.depends_on(sym)):
+            graph_deps.append((sym, target))
+
     # Normalize and compare
     actual = f"Symbols: {sorted(graph.all_symbols())}\n"
-    actual += f"Dependencies: {sorted([(d.source, d.target) for d in dependencies])}\n"
+    actual += f"Dependencies: {graph_deps}\n"
 
     actual = normalize_output(actual)
     golden = normalize_output(golden)

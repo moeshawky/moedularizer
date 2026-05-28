@@ -250,6 +250,16 @@ Examples:
         if not args.dry_run:
             sys.exit(1)
 
+    # Preserved exports
+    if result.preserved_exports:
+        count = len(result.preserved_exports)
+        if args.verbose:
+            print(f"\nPreserved exports ({count}):")
+            for name in sorted(result.preserved_exports):
+                print(f"  {name}")
+        else:
+            print(f"\nPreserved exports: {count}")
+
     # Write or dry-run
     if args.dry_run:
         print("\nDry run — would generate:")

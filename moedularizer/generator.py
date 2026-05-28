@@ -44,12 +44,21 @@ class CodeGenerator:
             module_name = self._sanitize_name(cluster.name)
             is_init = module_name == "__init__"
 
-            # Get imports for this module
+            # Get imports for this module from cross-module (external) dependencies
             imports_needed = []
-            for sym in symbols:
-                for dep in cluster.internal_deps:
-                    if dep.source == sym.name:
-                        imports_needed.append(dep.target)
+            if graph is not None:
+                all_symbols = graph.all_symbols()
+                for dep in cluster.external_deps:
+                    target_cluster_name = cluster_map.get(dep.target)
+                    if target_cluster_name is None:
+                        continue
+                    target_module_name = self._sanitize_name(target_cluster_name)
+                    if target_module_name == module_name:
+                        continue
+                    if dep.target in all_symbols:
+                        imports_needed.append(
+                            f"from {self.config.package_name}.{target_module_name} import {dep.target}"
+                        )
 
             # Only include external imports actually used by this module's symbols
             module_ext_imports = self._filter_imports_for_module(
@@ -211,6 +220,8 @@ class CodeGenerator:
 
     def write_modules(self, modules: List[Module], output_dir: Path) -> List[Path]:
         """Write all modules to disk."""
+        if self.config.dry_run:
+            return []
         written = []
         output_dir.mkdir(parents=True, exist_ok=True)
 

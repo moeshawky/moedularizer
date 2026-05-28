@@ -291,6 +291,25 @@ def foo():
     assert any(s.name == "foo" for s in symbols)
 
 
+def test_generator_dry_run_guard():
+    """G-CTX: write_modules returns [] when config.dry_run is True."""
+    import tempfile
+    from moedularizer.generator import CodeGenerator
+    from moedularizer.types import Module
+
+    config = MoedularizerConfig(dry_run=True)
+    generator = CodeGenerator(config)
+
+    module = Module(name="test_mod")
+    modules = [module]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir) / "output"
+        written = generator.write_modules(modules, output_dir)
+        assert written == []
+        assert not output_dir.exists()
+
+
 def test_very_long_function():
     """G-EDGE: Test handling of very long functions."""
     analyzer = Analyzer()

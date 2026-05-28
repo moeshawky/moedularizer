@@ -1,9 +1,30 @@
 [project]
 name = "moedularizer"
 version = "0.1.0"
-description = "Automatically modularize monolithic Python files"
+description = "Automatically modularize monolithic Python files into packages"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Moedularizer Contributors"}
+]
+keywords = ["refactoring", "modularization", "code-analysis", "ast", "python"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Quality Assurance",
+]
 requires-python = ">=3.9"
 dependencies = []
+
+[project.urls]
+repository = "https://github.com/anomalyco/moedularizer"
 
 [project.scripts]
 moedularizer = "moedularizer.cli:main"
