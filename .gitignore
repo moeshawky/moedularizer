@@ -38,3 +38,4 @@ dist/
 
 # AI annotation proposals (RNA layer — reviewed before applying as DNA)
 .annotations/
+.coverage
