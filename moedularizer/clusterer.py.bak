@@ -11,7 +11,6 @@ Uses a multi-pass approach:
 6. Infer cluster names from contents
 """
 
-import hashlib
 import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Set
@@ -101,7 +100,7 @@ class Clusterer:
                     used_symbols.add(name)
                 elif name not in all_symbol_names:
                     # Warn about typos in config
-                    pass  # Silently skipped — not validated by config.validate()
+                    pass  # Will be caught by validation
 
             if cluster_symbols:
                 clusters.append(Cluster(
@@ -281,8 +280,6 @@ class Clusterer:
                         break
                 if not modified:
                     result.append(cluster)
-                elif cluster.symbols:
-                    result.append(cluster)
 
             result.extend(new_clusters_to_add)
             clusters = result
@@ -364,7 +361,7 @@ class Clusterer:
             name = symbols[0].name
             return self._to_snake_case(name)
 
-        return f"module_{hashlib.md5(str(sorted(cluster.symbols)).encode()).hexdigest()[:4]}"
+        return f"module_{abs(hash(frozenset(cluster.symbols))) % 10000}"
 
     def _to_snake_case(self, name: str) -> str:
         """
@@ -423,7 +420,7 @@ class Clusterer:
         it's a valid Python identifier.
 
         Converts to lowercase (PEP 8 module naming). Duplicate of
-        CodeGenerator._sanitize_name at generator.py:302 — update both
+        CodeGenerator._sanitize_name at generator.py:274 — update both
         if changing.
         """
         # Remove any path separators or traversal attempts

@@ -38,7 +38,7 @@ class Validator:
         has_cycles = self._check_circular_imports(modules, result)
 
         # Check API preservation
-        api_preserved = self._check_api_preservation(modules, result)
+        self._check_api_preservation(modules, result)
 
         # Check all symbols are assigned
         self._check_symbol_coverage(modules, result)
@@ -75,13 +75,9 @@ class Validator:
         """
         # Build module dependency graph from import statements
         module_deps: Dict[str, Set[str]] = {}
-        module_map: Dict[str, str] = {}  # symbol -> module
 
         for module in modules:
             module_deps[module.name] = set()
-            for sym in module.symbols:
-                if sym.kind != SymbolKind.__members__.get('IMPORT', None):
-                    module_map[sym.name] = module.name
 
         # Parse import lines to determine module dependencies
         for module in modules:

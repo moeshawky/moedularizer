@@ -1,2 +1,14 @@
+# === SOURCE CODE ===
 moedularizer/
+
+# === TESTS ===
 tests/
+
+# === EXCLUSIONS ===
+# Hypothesis test data — property-based testing cache
+!.hypothesis/
+
+# Build artifacts
+!build/
+!moedularizer.egg-info/
+!*.egg-info/
