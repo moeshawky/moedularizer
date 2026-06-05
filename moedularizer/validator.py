@@ -20,6 +20,15 @@ class Validator:
     """Validate modularization results."""
 
     def __init__(self, original_exports: Set[str]):
+        """Store the expected public symbols for the top-level __init__.py.
+
+        ``original_exports`` is the set of symbols the generated init module
+        should re-export after modularization. The validator later compares
+        this set against the init module's actual exports in
+        ``_check_api_preservation`` to flag any missing symbols.
+
+        The set is stored as-is — no validation or mutation on construction.
+        """
         self.original_exports = original_exports
 
     def validate(

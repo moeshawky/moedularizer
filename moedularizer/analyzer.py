@@ -13,7 +13,7 @@ and decorators.
 import ast
 import re
 import textwrap
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
@@ -22,6 +22,14 @@ class SymbolExtractor(ast.NodeVisitor):
     """Walk AST and extract all top-level symbols including module-level code."""
 
     def __init__(self, source: str, filename: str = "<unknown>"):
+        """Initialize SymbolExtractor with source text and filename.
+
+        source is the raw source string. source_lines is pre-split for
+        line-indexed access. symbols accumulates extracted Symbol
+        objects. dunder_all and external_imports are populated by
+        dedicated extraction methods after visiting. _current_class
+        gates FunctionDef capture to top-level only.
+        """
         self.source = source
         self.source_lines = source.splitlines()
         self.filename = filename
@@ -29,7 +37,7 @@ class SymbolExtractor(ast.NodeVisitor):
         self.dunder_all: Optional[List[str]] = None  # extracted from source
         self.external_imports: List[Tuple[str, List[str]]] = []  # (module_path, [names])
         self._current_class: Optional[str] = None
-        self._module_level_ranges: List[Tuple[int, int]] = []  # (start, end) lines of module-level code
+
 
     def _extract_source(self, node: ast.AST) -> str:
         """Extract source text for a node, handling missing end_lineno gracefully."""
@@ -102,6 +110,11 @@ class SymbolExtractor(ast.NodeVisitor):
         self.symbols.append(sym)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        """Capture top-level FunctionDef as a FUNCTION Symbol.
+
+        Silently skips when _current_class is set (methods inside
+        classes). Does not descend into the function body.
+        """
         if self._current_class is None:
             sym = Symbol(
                 name=node.name,
@@ -115,6 +128,11 @@ class SymbolExtractor(ast.NodeVisitor):
             self.symbols.append(sym)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        """Capture top-level AsyncFunctionDef as an ASYNC_FUNCTION Symbol.
+
+        Structurally identical to visit_FunctionDef but produces
+        ASYNC_FUNCTION kind. Skips when _current_class is set.
+        """
         if self._current_class is None:
             sym = Symbol(
                 name=node.name,
@@ -128,6 +146,11 @@ class SymbolExtractor(ast.NodeVisitor):
             self.symbols.append(sym)
 
     def visit_Assign(self, node: ast.Assign):
+        """Capture ALL top-level assignment targets as CONSTANT symbols.
+
+        Includes non-UPPER_CASE names and multi-target assignments.
+        Each ast.Name target gets its own Symbol.
+        """
         # Top-level constant assignments
         for target in node.targets:
             if isinstance(target, ast.Name):
@@ -144,6 +167,12 @@ class SymbolExtractor(ast.NodeVisitor):
                 self.symbols.append(sym)
 
     def visit_AnnAssign(self, node: ast.AnnAssign):
+        """Capture typed top-level assignments as CONSTANT symbols.
+
+        Only captures when the target is a simple ast.Name. Attribute
+        targets and subscript targets are ignored. Type annotation info
+        is not recorded.
+        """
         # Typed top-level assignments
         if isinstance(node.target, ast.Name):
             sym = Symbol(
@@ -156,6 +185,12 @@ class SymbolExtractor(ast.NodeVisitor):
             self.symbols.append(sym)
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
+        """Track external imports and create IMPORT Symbols per alias.
+
+        Dual behavior: (1) tracks non-relative (not starting with '.')
+        imports in external_imports for downstream resolution;
+        (2) creates an IMPORT Symbol for each imported alias.
+        """
         # Track imports for re-export analysis
         if node.module and not node.module.startswith('.'):
             # External import (not relative)
@@ -173,10 +208,16 @@ class SymbolExtractor(ast.NodeVisitor):
             self.symbols.append(sym)
 
     def visit_Import(self, node: ast.Import):
+        """Handle 'import X [as Y]' style imports.
+
+        Stores (alias_name, [original_name]) in external_imports — the
+        tuple format differs from visit_ImportFrom's (module_path,
+        [names]). Creates an IMPORT Symbol for each alias.
+        """
         # Handle "import X" style imports
         for alias in node.names:
             name = alias.asname if alias.asname else alias.name
-            self.external_imports.append((name, [alias.name]))
+            self.external_imports.append((alias.name, [name]))
             sym = Symbol(
                 name=name,
                 kind=SymbolKind.IMPORT,
@@ -197,8 +238,7 @@ class SymbolExtractor(ast.NodeVisitor):
                                 ast.Import, ast.ImportFrom)):
                 continue
             if isinstance(node, ast.Assign):
-                # Check if it's a simple constant assignment (already captured)
-                if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+                if all(isinstance(t, ast.Name) for t in node.targets):
                     continue
             if isinstance(node, ast.AnnAssign):
                 continue
@@ -242,11 +282,26 @@ class DependencyExtractor(ast.NodeVisitor):
     """Walk AST and extract dependencies between symbols."""
 
     def __init__(self, symbol_names: Set[str]):
+        """Initialize DependencyExtractor with known symbol names.
+
+        symbol_names is the membership gate: only names in this set
+        produce dependency edges. dependencies accumulates Dependency
+        objects. _current_symbol tracks which top-level symbol is
+        being visited.
+        """
         self.symbol_names = symbol_names
         self.dependencies: List[Dependency] = []
         self._current_symbol: Optional[str] = None
 
     def visit_ClassDef(self, node: ast.ClassDef):
+        """Extract INHERITS and DECORATOR dependencies from class definitions.
+
+        Saves and restores _current_symbol around the class body.
+        Checks base classes for INHERITS edges and decorators for
+        DECORATOR edges — each gated by symbol_names membership.
+        Descends into the class body via generic_visit for CALLS
+        and USES_CONSTANT extraction.
+        """
         old = self._current_symbol
         self._current_symbol = node.name
 
@@ -276,6 +331,14 @@ class DependencyExtractor(ast.NodeVisitor):
         self._current_symbol = old
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        """Extract dependencies from top-level function definitions.
+
+        Only fires when _current_symbol is None. Captures four
+        dependency types: DECORATOR from decorator_list,
+        TYPE_ANNOTATION from argument/return annotations, and
+        DEFAULT_ARG from default argument values. Descends into the
+        function body for CALLS/USES_CONSTANT extraction.
+        """
         if self._current_symbol is None:
             old = self._current_symbol
             self._current_symbol = node.name
@@ -323,10 +386,23 @@ class DependencyExtractor(ast.NodeVisitor):
             self._current_symbol = old
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        """Delegate to visit_FunctionDef via duck-typing.
+
+        ast.AsyncFunctionDef shares identical structural attributes
+        with ast.FunctionDef but is not a subclass, so delegation
+        operates correctly at runtime. # type: ignore silences mypy.
+        """
         # Same logic as FunctionDef
         self.visit_FunctionDef(node)  # type: ignore
 
     def visit_Call(self, node: ast.Call):
+        """Capture CALLS dependencies when the call target is a known symbol.
+
+        Extracts the root name from the call target via _get_name
+        (unwraps Attribute chains). Skips self-dependencies by
+        comparing against _current_symbol. Descends into call
+        arguments via generic_visit.
+        """
         if self._current_symbol:
             name = self._get_name(node.func)
             if name in self.symbol_names and name != self._current_symbol:
@@ -339,6 +415,12 @@ class DependencyExtractor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name):
+        """Capture USES_CONSTANT dependencies for bare name references.
+
+        Only fires when _current_symbol is set (inside a tracked
+        symbol). Skips self-references. Does not call generic_visit
+        since Name is always a leaf node.
+        """
         if self._current_symbol and node.id in self.symbol_names:
             if node.id != self._current_symbol:
                 self.dependencies.append(Dependency(

@@ -6,9 +6,8 @@ Provides DependencyGraph for representing symbol dependencies and
 detecting cycles, performing topological sorts, and extracting subgraphs.
 """
 
-import sys
-from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from collections import defaultdict, deque
+from typing import Dict, List, Set, Tuple
 
 from moedularizer.types import Dependency, DependencyType, Symbol
 
@@ -20,12 +19,23 @@ class DependencyGraph:
     """
 
     def __init__(self, max_depth: int = 500):
+        """Constructs an empty dependency graph. Allocates three internal
+        data structures: _edges (forward adjacency via defaultdict(set)),
+        _edge_types (source,target → DependencyType label map), and
+        _reverse (reverse adjacency for O(1) depended_by queries).
+        `max_depth` caps cycle-detection path length; defaults to 500
+        to prevent unbounded recursion on dense graphs."""
         self._edges: Dict[str, Set[str]] = defaultdict(set)
         self._edge_types: Dict[Tuple[str, str], DependencyType] = {}
         self._reverse: Dict[str, Set[str]] = defaultdict(set)
-        self.max_depth = max_depth  # prevent stack overflow in cycle detection
+        self.max_depth = max_depth
 
     def add_dependency(self, dep: Dependency):
+        """Registers a Dependency edge in the graph. Updates three data
+        structures atomically: forward adjacency (_edges), edge-type
+        map (_edge_types), and reverse adjacency (_reverse). Edge-type
+        is recorded by (source, target) tuple key to allow O(1) type
+        lookup in subgraph() when copying edges."""
         self._edges[dep.source].add(dep.target)
         self._edge_types[(dep.source, dep.target)] = dep.dep_type
         self._reverse[dep.target].add(dep.source)
@@ -39,9 +49,19 @@ class DependencyGraph:
         return self._reverse.get(symbol, set()).copy()
 
     def has_dependency(self, source: str, target: str) -> bool:
+        """Edge existence check. Returns True when `target` is in the forward
+        adjacency set of `source`. O(1) average via set membership on dict
+        lookup. Returns False when either node is absent from the graph
+        (defaultdict supplies empty set for missing keys)."""
         return target in self._edges.get(source, set())
 
     def all_symbols(self) -> Set[str]:
+        """Collects the union of all source nodes and all target nodes from
+        the forward adjacency dict. Returns Set[str] covering every symbol
+        that either depends on something or is depended upon. Symbols that
+        are only targets (no outgoing edges) are captured because they
+        appear as values in _edges[s] sets. Time complexity: O(|V|+|E|)
+        where V is vertex count and E is edge count."""
         nodes = set()
         for s in self._edges:
             nodes.add(s)
@@ -51,33 +71,30 @@ class DependencyGraph:
     def find_cycles(self) -> List[List[str]]:
         """Find all cycles in the dependency graph using iterative DFS.
 
-        Known limitations:
-        - rec_stack is shared across all paths — if A→B→A and C→B both
-          reach B, C's traversal may report a false positive cycle.
-        - Cycle construction duplicates the node when node == path[cycle_start].
-        - Depth limit breaks only the inner for loop; outer DFS continues
-          with inconsistent coverage.
+        Each DFS traversal maintains its own path and path-set, preventing
+        false-positive cycles from state bleed between independent traversals.
+        Depth-limit hits terminate the current traversal cleanly rather than
+        leaving the outer loop with inconsistent state.
         """
-        cycles = []
-        visited = set()
-        rec_stack = set()
-        path = []
+        cycles: List[List[str]] = []
+        visited: Set[str] = set()
 
         def dfs_iterative(start: str):
-            stack = [(start, False)]
+            stack: List[Tuple[str, bool]] = [(start, False)]
+            path: List[str] = []
+            path_index: Dict[str, int] = {}
+
             while stack:
                 node, processed = stack.pop()
                 if processed:
-                    # Post-order: remove from path and rec_stack
-                    rec_stack.discard(node)
+                    path_index.pop(node, None)
                     if path and path[-1] == node:
                         path.pop()
                     continue
 
-                if node in rec_stack:
-                    # Found a cycle
-                    cycle_start = path.index(node)
-                    cycle = path[cycle_start:] + [node]
+                if node in path_index:
+                    cycle_start = path_index[node]
+                    cycle = path[cycle_start:]
                     cycles.append(cycle)
                     continue
 
@@ -85,20 +102,20 @@ class DependencyGraph:
                     continue
 
                 visited.add(node)
-                rec_stack.add(node)
+                path_index[node] = len(path)
                 path.append(node)
 
-                # Push post-order marker
                 stack.append((node, True))
 
-                # Push neighbors
                 for neighbor in sorted(self._edges.get(node, set()), reverse=True):
-                    if neighbor not in visited or neighbor in rec_stack:
+                    if neighbor not in visited or neighbor in path_index:
                         stack.append((neighbor, False))
 
-                # Check depth limit
                 if len(path) > self.max_depth:
                     cycles.append(list(path) + ["... (depth limit reached)"])
+                    stack.clear()
+                    path.clear()
+                    path_index.clear()
                     break
 
         for node in self.all_symbols():
@@ -112,28 +129,23 @@ class DependencyGraph:
         Topological sort of symbols using Kahn's algorithm.
         Raises ValueError if cycles exist.
 
-        queue.pop(0) is O(n) on Python lists — each pop shifts remaining
-        elements. Use collections.deque for O(1) popleft. Currently
-        acceptable for typical module counts (<50).
+        Uses collections.deque for O(1) popleft instead of O(n) list.pop(0).
         """
         in_degree: Dict[str, int] = defaultdict(int)
         all_nodes = self.all_symbols()
 
-        # Initialize in-degree for all nodes
         for node in all_nodes:
             in_degree[node] = 0
 
-        # Count incoming edges
         for source in all_nodes:
             for target in self._edges.get(source, set()):
                 in_degree[target] += 1
 
-        # Start with nodes that have no incoming edges
-        queue = [s for s in all_nodes if in_degree[s] == 0]
-        result = []
+        queue = deque([s for s in all_nodes if in_degree[s] == 0])
+        result: List[str] = []
 
         while queue:
-            node = queue.pop(0)
+            node = queue.popleft()
             result.append(node)
             for neighbor in self._edges.get(node, set()):
                 in_degree[neighbor] -= 1

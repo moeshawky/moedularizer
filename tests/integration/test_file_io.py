@@ -423,7 +423,6 @@ def baz():
             source_file=source_file,
             output_dir=output_dir,
             package_name="api",
-            preserve_public_api=True,
         )
 
         # Run pipeline

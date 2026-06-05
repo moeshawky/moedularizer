@@ -1,4 +1,15 @@
-"""Code generator for modularized Python files."""
+"""Converts Cluster groupings into Module objects with cross-module
+import resolution, renders them to Python source strings, and
+writes to disk. CodeGenerator is the sole class: generate() builds
+Module objects from clusters (8 params, produces List[Module] with
+guaranteed __init__); render_module() assembles source strings from
+docstring + imports + symbol bodies + __all__; three private
+helpers handle docstring templating (_generate_docstring), import
+classification via hardcoded stdlib set (_add_imports), and
+import filtering via regex with string-literal stripping
+(_filter_imports_for_module); write_modules() commits rendered
+source to disk with backup. Imports types.py symbols, config.py
+(MoedularizerConfig), and dependency.py (DependencyGraph)."""
 
 import re
 from pathlib import Path
@@ -18,6 +29,12 @@ class CodeGenerator:
     """Generate modularized Python files from clusters."""
 
     def __init__(self, config: MoedularizerConfig):
+        """Stores the MoedularizerConfig reference as self.config. No
+        validation, no derived state computation — config fields are
+        read lazily by downstream methods: package_name in generate()
+        (lines 78, 119), add_dunder_all in render_module() (line 154),
+        dry_run and backup_existing in write_modules() (lines 247, 258).
+        """
         self.config = config
 
     def generate(
@@ -28,7 +45,7 @@ class CodeGenerator:
         external_imports: Dict[str, List[str]],
         source: str,
         dunder_all: Optional[List[str]] = None,
-        module_level_code: Optional[str] = None,
+        module_level_code: Optional[str] = None,  # Reserved: module-level imperative code placement, not yet implemented
         graph: Optional[DependencyGraph] = None,
     ) -> List[Module]:
         """Generate modules from clusters.
@@ -37,13 +54,13 @@ class CodeGenerator:
             clusters: Symbol groupings from Clusterer.
             symbol_map: Dict mapping symbol names to Symbol objects.
             cluster_map: Dict mapping symbol names to cluster names, used
-                at line 52 to resolve cross-module dependency targets.
+                at line 70 to resolve cross-module dependency targets.
             external_imports: Dict of module_path -> [imported names].
             source: Original source text (for filtering imports).
             dunder_all: Explicit __all__ from the original source file,
                 takes precedence over auto-detected exports.
             module_level_code: Imperative code extracted from module level.
-            graph: DependencyGraph, used at line 49-50 to verify import
+            graph: DependencyGraph, used at lines 67-68 to verify import
                 targets exist via graph.all_symbols().
 
         Returns:
@@ -96,13 +113,14 @@ class CodeGenerator:
             )
 
         # Compute auto-exports: all public non-IMPORT symbols across all clusters
-        auto_exports = list({
+        auto_exports_set: Set[str] = {
             s.name for s in symbol_map.values()
             if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT
-        })
+        }
+        auto_exports = list(auto_exports_set)
 
         # Determine init exports: explicit __all__ takes precedence, else auto
-        init_exports = dunder_all if dunder_all else sorted(auto_exports)
+        init_exports = dunder_all if dunder_all is not None else sorted(auto_exports)
 
         # Update existing init module or add one
         init_module = next((m for m in modules if m.is_init), None)
@@ -182,7 +200,7 @@ class CodeGenerator:
         """Add import statements.
 
         stdlib_modules is a hardcoded set — only checks the first component
-        of a dotted import path (line 189). Missing some stdlib modules
+        of a dotted import path (set at 189, check at 213). Missing some stdlib modules
         (e.g. contextlib, csv, xml) and may false-positive on same-named
         third-party packages.
         """
@@ -272,7 +290,7 @@ class CodeGenerator:
     ) -> List[Tuple[str, List[str]]]:
         """Filter external imports to only those used by this module's symbols.
 
-        String literal stripping at lines 254-257 uses regex that does not
+        String literal stripping at lines 282-285 uses regex that does not
         handle escaped quotes inside strings or nested triple-quoted strings.
         """
         symbol_source = "\n".join(s.source for s in symbols if s.source)

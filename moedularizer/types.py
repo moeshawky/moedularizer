@@ -12,7 +12,7 @@ Defines the fundamental types used throughout the moedularizer pipeline:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 
 class SymbolKind(Enum):
@@ -28,6 +28,13 @@ class SymbolKind(Enum):
 @dataclass(frozen=True)
 class Symbol:
     """A named symbol in a Python module."""
+    # `name` and `kind` lack inline comments but are self-explanatory from
+    # the class docstring. `docstring: Optional[str] = None` lacks a comment
+    # — None means "no docstring found," standard Python convention.
+    # Remaining four fields (source, lineno, end_lineno, decorators) each
+    # carry inline comments describing non-obvious content invariants: source
+    # includes line breaks, lineno/end_lineno are 1-indexed (end_lineno
+    # defaults to lineno), decorators are raw source strings not resolved names.
     name: str
     kind: SymbolKind
     source: str           # full source text including line breaks
@@ -72,13 +79,25 @@ class Module:
     name: str             # e.g. "key_patterns"
     symbols: List[Symbol] = field(default_factory=list)
     dependencies: List[Dependency] = field(default_factory=list)
-    imports_needed: List[str] = field(default_factory=list)  # sorted for determinism; not insertion-ordered
+    imports_needed: List[str] = field(default_factory=list)  # Field comment: 'sorted for determinism; not insertion-ordered'. The
+    # comment lives on the dataclass field declaration, but the stored value
+    # is NOT sorted — generator.py:91 deduplicates via `list(set(...))`
+    # which produces hash-ordered output, not sorted output. The determinism
+    # is only achieved downstream at generator.py:242 where
+    # `sorted(module.imports_needed)` applies alphabetical order just before
+    # writing. The field's actual invariant is "List (for downstream sorting),
+    # not Set (to allow duplicates during accumulation that are deduplicated
+    # later)."
     external_imports: List[str] = field(default_factory=list)  # stdlib/third-party
     is_init: bool = False
     all_exports: List[str] = field(default_factory=list)  # for __all__
 
     @property
     def symbol_names(self) -> Set[str]:
+        """Computed property extracting {s.name for s in self.symbols}.
+        Returns Set[str] of symbol names, not full Symbol objects.
+        Downstream code uses this for membership checks without needing
+        to construct or reference Symbol instances."""
         return {s.name for s in self.symbols}
 
 
@@ -92,6 +111,10 @@ class Cluster:
 
     @property
     def is_self_contained(self) -> bool:
+        """Returns True when the cluster has no dependencies crossing its
+        boundary: len(self.external_deps) == 0. A self-contained cluster
+        can be extracted into a separate module without creating
+        cross-module import lines."""
         return len(self.external_deps) == 0
 
 

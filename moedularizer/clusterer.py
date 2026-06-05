@@ -13,7 +13,6 @@ Uses a multi-pass approach:
 
 import hashlib
 import re
-from collections import defaultdict
 from typing import Dict, List, Optional, Set
 
 from moedularizer.config import MoedularizerConfig
@@ -30,6 +29,12 @@ class Clusterer:
     """
 
     def __init__(self, config: MoedularizerConfig):
+        """
+        Stores the MoedularizerConfig reference. All clustering operations read
+        thresholds and toggles from self.config. No other initialization needed —
+        the cluster() method is the single entry point and builds fresh state
+        on each call.
+        """
         self.config = config
 
     def cluster(
@@ -37,7 +42,27 @@ class Clusterer:
         symbols: List[Symbol],
         dependencies: List[Dependency],
     ) -> List[Cluster]:
-        """Main clustering entry point."""
+        """Seven-pass clustering pipeline plus pre-processing:
+
+        — Pre-processing: filter IMPORT symbols from code_symbols and code_deps
+          (names, not Symbol refs), build DependencyGraph
+        — Pass 1: _apply_forced_groupings — create clusters from
+          config.force_groupings
+        — Pass 2: _apply_heuristics — isolate dataclasses, constants, pure
+          functions, and module-level code into auto-named clusters (gated by
+          config flags)
+        — Pass 3: _cluster_by_dependencies — greedy single-pass clustering on
+          remaining symbols; for each seed symbol (sorted), absorb its direct
+          deps and dependents up to max_symbols_per_module
+        — Pass 4: _apply_forced_separations — split clusters that co-locate
+          symbols from config.force_separations groups
+        — Pass 5: _compute_dependencies — populate Cluster.internal_deps and
+          Cluster.external_deps (all edges tagged DependencyType.CALLS —
+          clustering only needs edge existence, not type precision)
+        — Pass 6: _infer_name — assign module names to clusters lacking
+          user-provided names or carrying _auto_ prefix
+        — Pass 7: _sanitize_name — sanitize against path traversal, gated on
+          config.sanitize_module_names"""
         if not symbols:
             return []
 
@@ -88,7 +113,12 @@ class Clusterer:
         symbols: List[Symbol],
         graph: DependencyGraph,
     ) -> List[Cluster]:
-        """Create clusters from user-specified groupings."""
+        """Iterates config.force_groupings (Dict[str, List[str]]) and creates one
+        Cluster per named group whose symbols exist in the code_symbols set.
+        Unresolved symbol names (typos, stale references) are silently skipped
+        — the pass at line 103 defers to an unspecified validation step that
+        does not exist in config.validate(). Used_symbols tracking prevents a
+        symbol from appearing in multiple forced groups (first-claimed wins)."""
         clusters = []
         used_symbols: Set[str] = set()
         all_symbol_names = {s.name for s in symbols}
@@ -117,7 +147,29 @@ class Clusterer:
         symbol_map: Dict[str, Symbol],
         graph: DependencyGraph,
     ) -> List[Cluster]:
-        """Apply heuristic-based clustering."""
+        """Applies four clustering strategies gated by config boolean flags, each
+        creating a single auto-named cluster for a homogenous symbol category:
+
+        1. Dataclass isolation (config.separate_dataclasses): collects CLASS
+           symbols whose decorators match '@dataclass' or 'dataclass' substring.
+           Substring match at line 135 produces false positives on decorators
+           like @not_a_dataclass or @dataclass_factory — the existing inline
+           comment acknowledges this trade-off.
+
+        2. Constant isolation (config.separate_constants): collects all
+           SymbolKind.CONSTANT symbols.
+
+        3. Pure function isolation (config.separate_pure_functions): collects
+           functions with <= 2 outgoing dependencies and >= 1 incoming
+           dependents (a local utility heuristic).
+
+        4. Module-level code isolation (config.separate_module_level_code):
+           collects SymbolKind.MODULE_LEVEL_CODE symbols (imperative statements
+           at module scope outside classes/functions).
+
+        Each strategy respects the `used` set — symbols claimed by an earlier
+        strategy are excluded from later ones (first-match wins, strategies
+        tested in the order listed above)."""
         clusters = []
         used: Set[str] = set()
 
@@ -127,7 +179,7 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym = symbol_map.get(name)
+                sym: Optional[Symbol] = symbol_map.get(name)
                 if sym and sym.kind == SymbolKind.CLASS:
                     # Check if it's a dataclass by looking for @dataclass decorator
                     # Substring check: 'dataclass' in dec produces false positives
@@ -149,7 +201,7 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym = symbol_map.get(name)
+                sym: Optional[Symbol] = symbol_map.get(name)
                 if sym and sym.kind == SymbolKind.CONSTANT:
                     constant_symbols.add(name)
                     used.add(name)
@@ -166,7 +218,7 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym = symbol_map.get(name)
+                sym: Optional[Symbol] = symbol_map.get(name)
                 if sym and sym.kind in (SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION):
                     # Heuristic: pure functions have few dependencies and are depended upon by many
                     deps = graph.depends_on(name)
@@ -189,7 +241,7 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym = symbol_map.get(name)
+                sym: Optional[Symbol] = symbol_map.get(name)
                 if sym and sym.kind == SymbolKind.MODULE_LEVEL_CODE:
                     mlc_symbols.add(name)
                     used.add(name)
@@ -207,7 +259,18 @@ class Clusterer:
         remaining: Set[str],
         graph: DependencyGraph,
     ) -> List[Cluster]:
-        """Cluster remaining symbols by dependency density."""
+        """Greedy single-pass clustering on remaining unassigned symbols. Symbols
+        are processed in sorted order for determinism. For each seed symbol:
+        1. Absorb the seed's direct dependency targets (graph.depends_on) that
+           are still remaining and unassigned, up to max_symbols_per_module.
+        2. Absorb the seed's direct dependents (graph.depended_by) under the
+           same size cap.
+        3. Create a new Cluster named _auto_group_N.
+
+        This is NOT transitive — after absorbing deps, it does not recurse into
+        the newly added symbols' dependencies. Only direct neighbors of the seed
+        are considered. Symbols at 2+ hops from the seed end up in their own
+        clusters on subsequent iterations."""
         clusters = []
         assigned: Set[str] = set()
 
@@ -247,7 +310,17 @@ class Clusterer:
         clusters: List[Cluster],
         graph: DependencyGraph,
     ) -> List[Cluster]:
-        """Ensure forced-separated symbols are in different clusters."""
+        """Scans clusters for any that co-locate multiple symbols from the same
+        config.force_separations group. When found: removes the overlapping
+        symbols from the cluster (in-place mutation via set subtraction) and
+        creates separate single-symbol clusters for each. Short-circuits at
+        line 250 if force_separations is empty.
+
+        Contains a data-loss bug: when a cluster is modified (line 272),
+        the modified cluster is excluded from the result (line 281).
+        If the cluster had non-overlapping symbols besides the separated
+        ones, those remaining symbols are silently dropped. See
+        _bugs/clusterer.py.yaml for full analysis."""
         if not self.config.force_separations:
             return clusters
 
@@ -332,7 +405,18 @@ class Clusterer:
         cluster: Cluster,
         symbol_map: Dict[str, Symbol],
     ) -> str:
-        """Infer a module name from cluster contents."""
+        """Heuristic cascade for naming clusters, tested in order:
+        1. Single-class cluster → snake_case of class name (line 337)
+        2. Multiple functions with common underscore-bounded prefix > 3 chars
+           (line 343); prefix measured BEFORE stripping trailing underscores
+           so 'get_' (len 4) passes > 3 while stripped 'get' (len 3) would not
+        3. Multiple constants with common underscore-bounded prefix > 2 chars
+           (line 351); names lowercased before prefix computation
+        4. Fallback → snake_case of first symbol's name (line 359)
+        5. Empty-symbols fallback → hash-based name (line 364). WARNING:
+           Python's hash() is randomized by PYTHONHASHSEED, making this
+           fallback non-deterministic across process invocations. See
+           _bugs/clusterer.py.yaml."""
         symbols = [symbol_map.get(s) for s in cluster.symbols if s in symbol_map]
         symbols = [s for s in symbols if s is not None]
 

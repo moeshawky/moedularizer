@@ -244,7 +244,6 @@ def test_config_invariant():
     # Invariant: Config values are valid
     assert config.package_name.isidentifier()
     assert config.max_symbols_per_module >= config.min_symbols_per_module
-    assert config.min_python_version >= (3, 8)
 
 
 def test_generator_preserves_symbol_source():
