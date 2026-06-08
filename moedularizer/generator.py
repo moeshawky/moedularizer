@@ -328,12 +328,11 @@ class CodeGenerator:
 
         return list(filtered.items())
 
-    def _sanitize_name(self, name: str) -> str:
-        """Sanitize name to valid Python identifier.
-
-        Duplicate of Clusterer._sanitize_name at clusterer.py:417 — update
-        both if changing. Re-sanitization is safe (already-sanitized names
-        produce the same result), but divergence is a maintenance risk.
+    @staticmethod
+    def _sanitize_name(name: str) -> str:
+        """Sanitize name to valid Python identifier. Static method — shared
+        by Clusterer._sanitize_name via import. Re-sanitization is safe
+        (already-sanitized names produce the same result).
         """
         name = name.replace("/", "_").replace("\\", "_").replace("..", "_")
         name = re.sub(r"[^a-zA-Z0-9_]", "_", name)

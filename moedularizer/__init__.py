@@ -101,13 +101,16 @@ class Moedularizer:
         Calls config.validate() immediately — this is NOT deferred to
         modularize() or write(). If validate() returns a non-empty list
         of error strings, raises ValueError with those errors. Validation
-        checks: source_file existence (when truthy), max/min symbol ordering,
-        package_name.isidentifier(). Three additional gaps are documented
-        in config.validate()'s own docstring but not enforced here
-        (output_dir writability, max_symbols <= 0, force_groupings vs
-        force_separations conflicts). No other initialization — this
-        instance is reusable across multiple modularize()/write() calls
-        because config is the only stored state.
+        checks (per config.py:76-107): source_file existence (when set),
+        max/min symbol ordering, max_symbols_per_module > 0,
+        package_name.isidentifier(), force_groupings symbol name validity,
+        force_groupings vs force_separations key conflicts. Output_dir
+        writability is intentionally deferred to write_modules() at runtime
+        since the directory may not exist during config construction.
+
+        No other initialization — this instance is reusable across
+        multiple modularize()/write() calls because config is the only
+        stored state.
         """
         self.config = config
         errors = self.config.validate()

@@ -38,7 +38,7 @@ class MoedularizerConfig:
     separate_dataclasses: bool = True      # put dataclasses in their own module
     separate_pure_functions: bool = True   # separate pure functions from side-effectful ones
     separate_constants: bool = True         # put constants in their own module
-    separate_module_level_code: bool = True  # put module-level code in __init__ or separate module
+    separate_module_level_code: bool = True  # put module-level code in __init__
 
     # Heuristics
     force_groupings: Dict[str, List[str]] = field(default_factory=dict)

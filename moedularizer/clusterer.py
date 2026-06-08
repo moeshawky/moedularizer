@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Set
 
 from moedularizer.config import MoedularizerConfig
 from moedularizer.dependency import DependencyGraph, build_graph
+from moedularizer.generator import CodeGenerator
 from moedularizer.types import Cluster, Dependency, DependencyType, Symbol, SymbolKind
 
 
@@ -248,7 +249,7 @@ class Clusterer:
 
             if mlc_symbols:
                 clusters.append(Cluster(
-                    name="_auto_init",
+                    name="__init__",
                     symbols=mlc_symbols,
                 ))
 
@@ -502,24 +503,8 @@ class Clusterer:
         return prefix
 
     def _sanitize_name(self, name: str) -> str:
-        """
-        Sanitize a module name to prevent path traversal and ensure
-        it's a valid Python identifier.
-
-        Converts to lowercase (PEP 8 module naming). Duplicate of
-        CodeGenerator._sanitize_name at generator.py:302 — update both
-        if changing.
-        """
-        # Remove any path separators or traversal attempts
-        name = name.replace('/', '_').replace('\\', '_').replace('..', '_')
-        # Remove non-identifier characters
-        name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
-        # Remove leading digits
-        name = re.sub(r'^[0-9]+', '', name)
-        # Ensure not empty
-        if not name:
-            name = 'module'
-        # Ensure valid Python identifier
-        if not name.isidentifier():
-            name = f'module_{name}'
-        return name.lower()
+        """Delegates to CodeGenerator._sanitize_name — canonical
+        implementation lives in generator.py to avoid S-ENTROPY
+        duplication (previously two copies existed at clusterer.py:504
+        and generator.py:331)."""
+        return CodeGenerator._sanitize_name(name)

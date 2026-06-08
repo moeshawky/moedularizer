@@ -2,6 +2,12 @@
 """
 Command-line interface for the moedularizer.
 
+Delegates the modularization pipeline to Moedularizer.modularize() and
+Moedularizer.write(). Verbose mode runs a lightweight pre-analysis pass
+for display purposes; force_groupings typo checking also draws on
+pre-analysis symbol names. The rest of the pipeline is the canonical
+implementation in __init__.py — no duplicated logic.
+
 Usage:
     python -m moedularizer.cli monolith.py ./my_package/ --package-name my_package
     python -m moedularizer.cli monolith.py ./my_package/ --package-name my_package --dry-run
@@ -11,26 +17,20 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
+from moedularizer import Moedularizer
 from moedularizer.analyzer import Analyzer
-from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig
-from moedularizer.dependency import build_graph
 from moedularizer.generator import CodeGenerator
-from moedularizer.imodent_bridge import ImodentBridge, ImodentReport
 from moedularizer.types import SymbolKind
-from moedularizer.validator import Validator
 
 
 def main():
-    """Run the full modularization pipeline from CLI.
+    """Run the full modularization pipeline from CLI, delegating to
+    Moedularizer.modularize() and Moedularizer.write() for the core
+    pipeline. CLI-specific concerns (argparse, verbose output, dry-run
+    rendering, force_groupings typo check) remain in this function."""
 
-    Currently assembles the pipeline inline (analyze → cluster → generate →
-    validate → write). Moedularizer.modularize() and Moedularizer.write()
-    (__init__.py:72, :116) provide the canonical pipeline — main() should
-    delegate to Moedularizer instead of inlining all components.
-    """
     parser = argparse.ArgumentParser(
         description="Modularize a monolithic Python file into a package.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -199,107 +199,54 @@ Examples:
             print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Analyze
-    analyzer = Analyzer()
+    # Pre-analysis for verbose output and force_groupings typo check.
+    # Moedularizer.modularize() runs Analyzer internally, so this is a
+    # lightweight duplicate only when verbose or force_groupings are set.
+    if args.verbose or config.force_groupings:
+        analyzer = Analyzer()
+        try:
+            symbols, dependencies, dunder_all_pre, external_imports_pre, _ = analyzer.analyze(
+                source, filename=str(args.source_file)
+            )
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        if args.verbose:
+            print(f"Found {len(symbols)} symbols:")
+            for sym in symbols:
+                print(f"  {sym.kind.value}: {sym.name} (line {sym.lineno})")
+            print(f"Found {len(dependencies)} dependencies:")
+            for dep in dependencies:
+                print(f"  {dep.source} -> {dep.target} ({dep.dep_type.value})")
+            if dunder_all_pre:
+                print(f"Found __all__: {dunder_all_pre}")
+            if external_imports_pre:
+                print(f"Found {len(external_imports_pre)} external import groups:")
+                for module_path, names in external_imports_pre:
+                    print(f"  from {module_path} import {', '.join(names)}")
+
+        # Force groupings typo check (symbols must exist in source)
+        if config.force_groupings:
+            symbol_map = {s.name: s for s in symbols}
+            for group_name, symbol_names in config.force_groupings.items():
+                for sym_name in symbol_names:
+                    if sym_name not in symbol_map:
+                        print(
+                            f"Warning: Symbol '{sym_name}' in "
+                            f"force_groupings['{group_name}'] not found in source",
+                            file=sys.stderr,
+                        )
+
+    # Core pipeline — delegate to Moedularizer
+    mod = Moedularizer(config)
     try:
-        symbols, dependencies, dunder_all, external_imports, module_level_code = analyzer.analyze(
-            source, filename=str(args.source_file)
-        )
+        result = mod.modularize(source)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if args.verbose:
-        print(f"Found {len(symbols)} symbols:")
-        for sym in symbols:
-            print(f"  {sym.kind.value}: {sym.name} (line {sym.lineno})")
-        print(f"Found {len(dependencies)} dependencies:")
-        for dep in dependencies:
-            print(f"  {dep.source} -> {dep.target} ({dep.dep_type.value})")
-        if dunder_all:
-            print(f"Found __all__: {dunder_all}")
-        if external_imports:
-            print(f"Found {len(external_imports)} external import groups:")
-            for module_path, names in external_imports:
-                print(f"  from {module_path} import {', '.join(names)}")
-
-    # Cluster
-    clusterer = Clusterer(config)
-    clusters = clusterer.cluster(symbols, dependencies)
-
-    if args.verbose:
-        print(f"\nGenerated {len(clusters)} clusters:")
-        for cluster in clusters:
-            print(f"  {cluster.name}: {sorted(cluster.symbols)}")
-            if cluster.external_deps:
-                ext_targets = [d.target for d in cluster.external_deps]
-                print(f"    External deps: {sorted(ext_targets)}")
-
-    # Build symbol -> cluster map
-    symbol_map = {s.name: s for s in symbols}
-    cluster_map = {}
-    for cluster in clusters:
-        for sym in cluster.symbols:
-            cluster_map[sym] = cluster.name
-
-    # Check for config typos
-    for group_name, symbol_names in config.force_groupings.items():
-        for sym_name in symbol_names:
-            if sym_name not in symbol_map:
-                print(f"Warning: Symbol '{sym_name}' in force_groupings['{group_name}'] not found in source", file=sys.stderr)
-
-    # Convert external_imports from list of tuples to dict
-    # This conversion is duplicated in Moedularizer.modularize()
-    # (__init__.py:93-99) and 5 integration tests. If main() delegates
-    # to Moedularizer, this copy goes away.
-    external_imports_dict = {}
-    for module_path, names in external_imports:
-        if module_path not in external_imports_dict:
-            external_imports_dict[module_path] = []
-        for name in names:
-            if name not in external_imports_dict[module_path]:
-                external_imports_dict[module_path].append(name)
-
-    # Run imodent project-wide import analysis if enabled
-    imodent_report: Optional[ImodentReport] = None
-    if config.use_imodent:
-        try:
-            bridge = ImodentBridge()
-            project_paths = (
-                [Path(p) for p in config.imodent_project_paths]
-                if config.imodent_project_paths
-                else [args.source_file.parent]
-            )
-            imodent_report = bridge.analyze_project(
-                project_paths,
-                check_lint=config.imodent_check_lint,
-            )
-        except Exception as e:
-            if args.verbose:
-                print(f"imodent analysis skipped: {e}", file=sys.stderr)
-
-    # Generate
-    generator = CodeGenerator(config)
-    graph = build_graph(dependencies)
-    modules = generator.generate(
-        clusters, symbol_map, cluster_map, external_imports_dict, source,
-        dunder_all=dunder_all,
-        graph=graph,
-        imodent_report=imodent_report,
-    )
-
-    # Validate
-    original_exports = {s.name for s in symbols if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT}
-    if config.respect_dunder_all and dunder_all is not None:
-        original_exports = set(dunder_all) | original_exports
-    validator = Validator(original_exports)
-    result = validator.validate(modules, clusters, graph)
-
-    # Merge imodent warnings
-    if imodent_report is not None and imodent_report.warnings:
-        result.warnings.extend(imodent_report.warnings)
-
-    # Report
+    # Report warnings and errors
     if result.warnings:
         print("\nWarnings:")
         for w in result.warnings:
@@ -324,20 +271,24 @@ Examples:
 
     # Write or dry-run
     if args.dry_run:
+        generator = CodeGenerator(config)
         print("\nDry run — would generate:")
-        for module in modules:
+        for module in result.modules:
+            non_import_count = len(
+                [s for s in module.symbols if s.kind != SymbolKind.IMPORT]
+            )
             print(f"\n{'='*60}")
-            print(f"  {module.name}.py ({len([s for s in module.symbols if s.kind != SymbolKind.IMPORT])} symbols)")
+            print(f"  {module.name}.py ({non_import_count} symbols)")
             print(f"{'='*60}")
             content = generator.render_module(module)
-            lines = content.splitlines()
-            for line in lines[:20]:
+            for line in content.splitlines()[:20]:
                 print(f"  {line}")
-            if len(lines) > 20:
-                print(f"  ... ({len(lines) - 20} more lines)")
+            line_count = len(content.splitlines())
+            if line_count > 20:
+                print(f"  ... ({line_count - 20} more lines)")
     else:
         try:
-            written = generator.write_modules(modules, args.output_dir)
+            written = mod.write(result)
             print(f"\n✓ Wrote {len(written)} modules to {args.output_dir}/")
             for path in written:
                 print(f"  {path}")
