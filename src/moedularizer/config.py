@@ -28,16 +28,16 @@ class MoedularizerConfig:
     """
 
     # Input
-    source_file: Optional[Path] = None    # monolithic file to split (optional for programmatic use)
-    output_dir: Optional[Path] = None     # directory for generated modules (optional for dry-run)
-    package_name: str = "modularized"     # package name for imports
+    source_file: Optional[Path] = None  # monolithic file to split (optional for programmatic use)
+    output_dir: Optional[Path] = None  # directory for generated modules (optional for dry-run)
+    package_name: str = "modularized"  # package name for imports
 
     # Clustering
-    max_symbols_per_module: int = 10       # Maximum symbols in a single output module — clusterer splits clusters exceeding this threshold
-    min_symbols_per_module: int = 1        # Minimum symbols per output module; enforced only in validate() as a relational check against max_symbols_per_module
-    separate_dataclasses: bool = True      # put dataclasses in their own module
-    separate_pure_functions: bool = True   # separate pure functions from side-effectful ones
-    separate_constants: bool = True         # put constants in their own module
+    max_symbols_per_module: int = 10  # Maximum symbols in a single output module — clusterer splits clusters exceeding this threshold
+    min_symbols_per_module: int = 1  # Minimum symbols per output module; enforced only in validate() as a relational check against max_symbols_per_module
+    separate_dataclasses: bool = True  # put dataclasses in their own module
+    separate_pure_functions: bool = True  # separate pure functions from side-effectful ones
+    separate_constants: bool = True  # put constants in their own module
     separate_module_level_code: bool = True  # put module-level code in __init__
 
     # Heuristics
@@ -48,23 +48,23 @@ class MoedularizerConfig:
     # e.g. [{"canonicalize", "ModelCatalog"}] — these MUST be in different modules
 
     # Style
-    use_absolute_imports: bool = True       # Use 'from package.module import X' absolute imports instead of relative imports in generated modules
-    add_dunder_all: bool = True            # add __all__ to each module
+    use_absolute_imports: bool = True  # Use 'from package.module import X' absolute imports instead of relative imports in generated modules
+    add_dunder_all: bool = True  # add __all__ to each module
 
     # Import handling
-    respect_dunder_all: bool = True         # use __all__ from original file if present
+    respect_dunder_all: bool = True  # use __all__ from original file if present
 
     # Safety
-    sanitize_module_names: bool = True      # prevent path traversal
-    backup_existing: bool = True            # backup files before overwriting
-    dry_run: bool = False                   # don't write files
+    sanitize_module_names: bool = True  # prevent path traversal
+    backup_existing: bool = True  # backup files before overwriting
+    dry_run: bool = False  # don't write files
 
     # imodent integration
-    use_imodent: bool = False               # enable imodent-powered import analysis
+    use_imodent: bool = False  # enable imodent-powered import analysis
     imodent_project_paths: List[str] = field(default_factory=list)
     # directories to scan for cross-file import context (defaults to [source_file.parent])
-    imodent_check_lint: bool = False        # enable Ruff-backed lint checks (slower)
-    imodent_strict_imports: bool = True     # remove imports imodent flags as unused
+    imodent_check_lint: bool = False  # enable Ruff-backed lint checks (slower)
+    imodent_strict_imports: bool = True  # remove imports imodent flags as unused
 
     def validate(self) -> List[str]:
         """Return list of validation errors.
@@ -84,9 +84,7 @@ class MoedularizerConfig:
         if self.max_symbols_per_module < self.min_symbols_per_module:
             errors.append("max_symbols_per_module < min_symbols_per_module")
         if self.max_symbols_per_module <= 0:
-            errors.append(
-                f"max_symbols_per_module must be > 0, got {self.max_symbols_per_module}"
-            )
+            errors.append(f"max_symbols_per_module must be > 0, got {self.max_symbols_per_module}")
         if not self.package_name.isidentifier():
             errors.append(f"Invalid package name: {self.package_name!r}")
 
@@ -95,8 +93,7 @@ class MoedularizerConfig:
             for sym_name in symbols:
                 if not sym_name or not sym_name.isidentifier():
                     errors.append(
-                        f"Invalid symbol name '{sym_name}' in "
-                        f"force_groupings['{group_name}']"
+                        f"Invalid symbol name '{sym_name}' in force_groupings['{group_name}']"
                     )
 
         # Detect force_groupings vs force_separations conflicts

@@ -25,7 +25,7 @@ from moedularizer.generator import CodeGenerator
 from moedularizer.types import SymbolKind
 
 
-def main():
+def main() -> None:
     """Run the full modularization pipeline from CLI, delegating to
     Moedularizer.modularize() and Moedularizer.write() for the core
     pipeline. CLI-specific concerns (argparse, verbose output, dry-run
@@ -48,109 +48,88 @@ Examples:
   # Custom clustering
   python -m moedularizer.cli monolith.py ./my_package/ --package-name my_package \\
       --force-groupings key_handling=KeyPattern,DetectedKey,KeyRegistry
-        """
+        """,
     )
     parser.add_argument(
-        "source_file",
-        type=Path,
-        help="Path to the monolithic Python file to split"
+        "source_file", type=Path, help="Path to the monolithic Python file to split"
+    )
+    parser.add_argument("output_dir", type=Path, help="Directory for the generated package")
+    parser.add_argument(
+        "--package-name", required=True, help="Package name for imports (e.g. 'providers.registry')"
     )
     parser.add_argument(
-        "output_dir",
-        type=Path,
-        help="Directory for the generated package"
-    )
-    parser.add_argument(
-        "--package-name",
-        required=True,
-        help="Package name for imports (e.g. 'providers.registry')"
-    )
-    parser.add_argument(
-        "--max-symbols",
-        type=int,
-        default=10,
-        help="Maximum symbols per module (default: 10)"
+        "--max-symbols", type=int, default=10, help="Maximum symbols per module (default: 10)"
     )
     parser.add_argument(
         "--separate-dataclasses",
         action="store_true",
         default=True,
-        help="Put dataclasses in their own module (default: True)"
+        help="Put dataclasses in their own module (default: True)",
     )
     parser.add_argument(
         "--no-separate-dataclasses",
         action="store_false",
         dest="separate_dataclasses",
-        help="Don't separate dataclasses"
+        help="Don't separate dataclasses",
     )
     parser.add_argument(
         "--separate-constants",
         action="store_true",
         default=True,
-        help="Put constants in their own module (default: True)"
+        help="Put constants in their own module (default: True)",
     )
     parser.add_argument(
         "--no-separate-constants",
         action="store_false",
         dest="separate_constants",
-        help="Don't separate constants"
+        help="Don't separate constants",
     )
     parser.add_argument(
         "--absolute-imports",
         action="store_true",
         default=True,
-        help="Use absolute imports (default: True)"
+        help="Use absolute imports (default: True)",
     )
     parser.add_argument(
         "--relative-imports",
         action="store_false",
         dest="absolute_imports",
-        help="Use relative imports"
+        help="Use relative imports",
     )
     parser.add_argument(
         "--force-groupings",
         action="append",
         default=[],
-        help="Force symbols to be grouped together (format: name=Sym1,Sym2,Sym3)"
+        help="Force symbols to be grouped together (format: name=Sym1,Sym2,Sym3)",
     )
+    parser.add_argument("--dry-run", action="store_true", help="Print plan without writing files")
+    parser.add_argument("--verbose", action="store_true", help="Print detailed information")
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print plan without writing files"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print detailed information"
-    )
-    parser.add_argument(
-        "--no-backup",
-        action="store_true",
-        help="Don't backup existing files before overwriting"
+        "--no-backup", action="store_true", help="Don't backup existing files before overwriting"
     )
     parser.add_argument(
         "--imodent",
         action="store_true",
         dest="use_imodent",
-        help="Enable imodent-powered import analysis and unused import filtering"
+        help="Enable imodent-powered import analysis and unused import filtering",
     )
     parser.add_argument(
         "--imodent-paths",
         nargs="*",
         default=[],
-        help="Additional directories for imodent to scan for cross-file context"
+        help="Additional directories for imodent to scan for cross-file context",
     )
     parser.add_argument(
         "--imodent-lint",
         action="store_true",
         dest="imodent_check_lint",
-        help="Enable Ruff-backed lint checks in imodent (slower)"
+        help="Enable Ruff-backed lint checks in imodent (slower)",
     )
     parser.add_argument(
         "--no-imodent-strict",
         action="store_false",
         dest="imodent_strict_imports",
-        help="Report unused imports but don't remove them from generated modules"
+        help="Report unused imports but don't remove them from generated modules",
     )
 
     args = parser.parse_args()
@@ -195,8 +174,8 @@ Examples:
     # Validate config
     errors = config.validate()
     if errors:
-        for e in errors:
-            print(f"Error: {e}", file=sys.stderr)
+        for err_msg in errors:
+            print(f"Error: {err_msg}", file=sys.stderr)
         sys.exit(1)
 
     # Pre-analysis for verbose output and force_groupings typo check.
@@ -254,8 +233,8 @@ Examples:
 
     if result.errors:
         print("\nErrors:")
-        for e in result.errors:
-            print(f"  ✗ {e}")
+        for err_msg in result.errors:
+            print(f"  ✗ {err_msg}")
         if not args.dry_run:
             sys.exit(1)
 
@@ -274,12 +253,10 @@ Examples:
         generator = CodeGenerator(config)
         print("\nDry run — would generate:")
         for module in result.modules:
-            non_import_count = len(
-                [s for s in module.symbols if s.kind != SymbolKind.IMPORT]
-            )
-            print(f"\n{'='*60}")
+            non_import_count = len([s for s in module.symbols if s.kind != SymbolKind.IMPORT])
+            print(f"\n{'=' * 60}")
             print(f"  {module.name}.py ({non_import_count} symbols)")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             content = generator.render_module(module)
             for line in content.splitlines()[:20]:
                 print(f"  {line}")

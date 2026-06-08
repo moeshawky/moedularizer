@@ -9,7 +9,7 @@ detecting cycles, performing topological sorts, and extracting subgraphs.
 from collections import defaultdict, deque
 from typing import Dict, List, Set, Tuple
 
-from moedularizer.types import Dependency, DependencyType, Symbol
+from moedularizer.types import Dependency, DependencyType
 
 
 class DependencyGraph:
@@ -30,7 +30,7 @@ class DependencyGraph:
         self._reverse: Dict[str, Set[str]] = defaultdict(set)
         self.max_depth = max_depth
 
-    def add_dependency(self, dep: Dependency):
+    def add_dependency(self, dep: Dependency) -> None:
         """Registers a Dependency edge in the graph. Updates three data
         structures atomically: forward adjacency (_edges), edge-type
         map (_edge_types), and reverse adjacency (_reverse). Edge-type
@@ -79,7 +79,7 @@ class DependencyGraph:
         cycles: List[List[str]] = []
         visited: Set[str] = set()
 
-        def dfs_iterative(start: str):
+        def dfs_iterative(start: str) -> None:
             stack: List[Tuple[str, bool]] = [(start, False)]
             path: List[str] = []
             path_index: Dict[str, int] = {}
@@ -112,7 +112,7 @@ class DependencyGraph:
                         stack.append((neighbor, False))
 
                 if len(path) > self.max_depth:
-                    cycles.append(list(path) + ["... (depth limit reached)"])
+                    cycles.append([*list(path), "... (depth limit reached)"])
                     stack.clear()
                     path.clear()
                     path_index.clear()
@@ -154,8 +154,9 @@ class DependencyGraph:
 
         if len(result) != len(all_nodes):
             remaining = all_nodes - set(result)
-            raise ValueError(f"Graph has cycles, cannot topologically sort. "
-                           f"Remaining nodes: {remaining}")
+            raise ValueError(
+                f"Graph has cycles, cannot topologically sort. Remaining nodes: {remaining}"
+            )
 
         return result
 
@@ -166,11 +167,13 @@ class DependencyGraph:
             for target in self._edges.get(source, set()):
                 if target in symbols:
                     dep_type = self._edge_types.get((source, target), DependencyType.CALLS)
-                    sub.add_dependency(Dependency(
-                        source=source,
-                        target=target,
-                        dep_type=dep_type,
-                    ))
+                    sub.add_dependency(
+                        Dependency(
+                            source=source,
+                            target=target,
+                            dep_type=dep_type,
+                        )
+                    )
         return sub
 
     def symbol_order(self, symbols: List[str]) -> List[str]:

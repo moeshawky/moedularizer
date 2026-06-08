@@ -5,8 +5,9 @@ Tests for regression against golden files.
 LLM output drifts over time - need golden file comparison.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 pytestmark = pytest.mark.regression
 from moedularizer.analyzer import Analyzer
@@ -56,7 +57,9 @@ def foo():
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_class_with_methods():
@@ -86,7 +89,9 @@ class Foo:
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_dependencies():
@@ -118,7 +123,9 @@ def baz():
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_clustering():
@@ -156,7 +163,9 @@ def baz():
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_module_generation():
@@ -188,7 +197,9 @@ def test_golden_module_generation():
     actual = normalize_output(rendered)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_init_generation():
@@ -213,7 +224,9 @@ def test_golden_init_generation():
     actual = normalize_output(rendered)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_full_pipeline():
@@ -259,7 +272,11 @@ class Baz:
                 external_imports_dict[module_path].append(name)
 
     modules = generator.generate(
-        clusters, symbol_map, cluster_map, external_imports_dict, source,
+        clusters,
+        symbol_map,
+        cluster_map,
+        external_imports_dict,
+        source,
         dunder_all=dunder_all,
         graph=graph,
     )
@@ -275,7 +292,9 @@ class Baz:
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_config_defaults():
@@ -295,16 +314,22 @@ def test_golden_config_defaults():
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )
 
 
 def test_golden_dependency_graph():
     """G-DRIFT: Test against golden file for dependency graph."""
-    from moedularizer.types import Symbol, Dependency, DependencyType, SymbolKind
+    from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-    symbols = [
-        Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2),
-        Symbol(name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4),
+    [
+        Symbol(
+            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+        ),
+        Symbol(
+            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+        ),
     ]
     dependencies = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
@@ -328,4 +353,6 @@ def test_golden_dependency_graph():
     actual = normalize_output(actual)
     golden = normalize_output(golden)
 
-    assert actual == golden, f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    assert actual == golden, (
+        f"Output drifted from golden file.\nExpected:\n{golden}\n\nActual:\n{actual}"
+    )

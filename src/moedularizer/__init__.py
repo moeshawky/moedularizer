@@ -44,34 +44,34 @@ from moedularizer.types import (
 from moedularizer.validator import Validator
 
 __all__ = [
-    # Core API
-    "Moedularizer",
-    "MoedularizerConfig",
     # Pipeline components
     "Analyzer",
+    # Types (re-exported for annotation use)
+    "Cluster",
     "Clusterer",
     "CodeGenerator",
-    "Validator",
+    "Dependency",
+    # Graph
+    "DependencyGraph",
+    "DependencyType",
+    # Typing (re-exported for annotation use)
+    "Dict",
     # imodent bridge
     "ImodentBridge",
     "ImodentReport",
-    # Graph
-    "DependencyGraph",
-    "build_graph",
-    # Types (re-exported for annotation use)
-    "Cluster",
-    "Dependency",
-    "DependencyType",
+    "List",
     "ModularizationResult",
     "Module",
+    # Core API
+    "Moedularizer",
+    "MoedularizerConfig",
+    "Optional",
+    "Path",
+    "Set",
     "Symbol",
     "SymbolKind",
-    # Typing (re-exported for annotation use)
-    "Dict",
-    "List",
-    "Optional",
-    "Set",
-    "Path",
+    "Validator",
+    "build_graph",
 ]
 
 
@@ -159,8 +159,8 @@ class Moedularizer:
         consumed there (removed per RC #5).
         """
         analyzer = Analyzer()
-        symbols, dependencies, dunder_all, external_imports, module_level_code = analyzer.analyze(
-            source, filename=str(self.config.source_file) if self.config.source_file else '<string>'
+        symbols, dependencies, dunder_all, external_imports, _module_level_code = analyzer.analyze(
+            source, filename=str(self.config.source_file) if self.config.source_file else "<string>"
         )
 
         imodent_report: Optional[ImodentReport] = None
@@ -178,7 +178,7 @@ class Moedularizer:
                     project_paths,
                     check_lint=self.config.imodent_check_lint,
                 )
-            except Exception as e:
+            except Exception:
                 imodent_report = None
 
         clusterer = Clusterer(self.config)
@@ -202,13 +202,19 @@ class Moedularizer:
         generator = CodeGenerator(self.config)
         graph = build_graph(dependencies)
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
             imodent_report=imodent_report,
         )
 
-        original_exports = {s.name for s in symbols if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT}
+        original_exports = {
+            s.name for s in symbols if not s.name.startswith("_") and s.kind != SymbolKind.IMPORT
+        }
         if self.config.respect_dunder_all and dunder_all is not None:
             original_exports = set(dunder_all) | original_exports
         validator = Validator(original_exports)
@@ -236,6 +242,8 @@ class Moedularizer:
         Returns List[Path] of written file paths (empty under dry_run).
         """
         if self.config.output_dir is None:
-            raise ValueError("output_dir is not configured — set MoedularizerConfig.output_dir before calling write()")
+            raise ValueError(
+                "output_dir is not configured — set MoedularizerConfig.output_dir before calling write()"
+            )
         generator = CodeGenerator(self.config)
         return generator.write_modules(result.modules, self.config.output_dir)

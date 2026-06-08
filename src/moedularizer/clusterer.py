@@ -12,7 +12,6 @@ Uses a multi-pass approach:
 """
 
 import hashlib
-import re
 from typing import Dict, List, Optional, Set
 
 from moedularizer.config import MoedularizerConfig
@@ -69,9 +68,12 @@ class Clusterer:
 
         # Filter out IMPORT symbols — they are not code to modularize
         code_symbols = [s for s in symbols if s.kind != SymbolKind.IMPORT]
-        code_deps = [d for d in dependencies
-                     if d.source in {s.name for s in code_symbols}
-                     and d.target in {s.name for s in code_symbols}]
+        code_deps = [
+            d
+            for d in dependencies
+            if d.source in {s.name for s in code_symbols}
+            and d.target in {s.name for s in code_symbols}
+        ]
 
         graph = build_graph(code_deps)
         symbol_map = {s.name: s for s in code_symbols}
@@ -135,10 +137,12 @@ class Clusterer:
                     pass  # Silently skipped — not validated by config.validate()
 
             if cluster_symbols:
-                clusters.append(Cluster(
-                    name=group_name,
-                    symbols=cluster_symbols,
-                ))
+                clusters.append(
+                    Cluster(
+                        name=group_name,
+                        symbols=cluster_symbols,
+                    )
+                )
 
         return clusters
 
@@ -191,10 +195,12 @@ class Clusterer:
                         used.add(name)
 
             if dataclass_symbols:
-                clusters.append(Cluster(
-                    name="_auto_dataclasses",
-                    symbols=dataclass_symbols,
-                ))
+                clusters.append(
+                    Cluster(
+                        name="_auto_dataclasses",
+                        symbols=dataclass_symbols,
+                    )
+                )
 
         # Separate constants if configured
         if self.config.separate_constants:
@@ -202,16 +208,18 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym: Optional[Symbol] = symbol_map.get(name)
-                if sym and sym.kind == SymbolKind.CONSTANT:
+                sym_const: Optional[Symbol] = symbol_map.get(name)
+                if sym_const and sym_const.kind == SymbolKind.CONSTANT:
                     constant_symbols.add(name)
                     used.add(name)
 
             if constant_symbols:
-                clusters.append(Cluster(
-                    name="_auto_constants",
-                    symbols=constant_symbols,
-                ))
+                clusters.append(
+                    Cluster(
+                        name="_auto_constants",
+                        symbols=constant_symbols,
+                    )
+                )
 
         # Separate pure functions if configured
         if self.config.separate_pure_functions:
@@ -219,8 +227,8 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym: Optional[Symbol] = symbol_map.get(name)
-                if sym and sym.kind in (SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION):
+                sym_func: Optional[Symbol] = symbol_map.get(name)
+                if sym_func and sym_func.kind in (SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION):
                     # Heuristic: pure functions have few dependencies and are depended upon by many
                     deps = graph.depends_on(name)
                     dep_by = graph.depended_by(name)
@@ -231,10 +239,12 @@ class Clusterer:
                         used.add(name)
 
             if pure_functions:
-                clusters.append(Cluster(
-                    name="_auto_utils",
-                    symbols=pure_functions,
-                ))
+                clusters.append(
+                    Cluster(
+                        name="_auto_utils",
+                        symbols=pure_functions,
+                    )
+                )
 
         # Separate module-level code if configured
         if self.config.separate_module_level_code:
@@ -242,16 +252,18 @@ class Clusterer:
             for name in remaining:
                 if name in used:
                     continue
-                sym: Optional[Symbol] = symbol_map.get(name)
-                if sym and sym.kind == SymbolKind.MODULE_LEVEL_CODE:
+                sym_mlc: Optional[Symbol] = symbol_map.get(name)
+                if sym_mlc and sym_mlc.kind == SymbolKind.MODULE_LEVEL_CODE:
                     mlc_symbols.add(name)
                     used.add(name)
 
             if mlc_symbols:
-                clusters.append(Cluster(
-                    name="__init__",
-                    symbols=mlc_symbols,
-                ))
+                clusters.append(
+                    Cluster(
+                        name="__init__",
+                        symbols=mlc_symbols,
+                    )
+                )
 
         return clusters
 
@@ -272,7 +284,7 @@ class Clusterer:
         the newly added symbols' dependencies. Only direct neighbors of the seed
         are considered. Symbols at 2+ hops from the seed end up in their own
         clusters on subsequent iterations."""
-        clusters = []
+        clusters: List[Cluster] = []
         assigned: Set[str] = set()
 
         for symbol in sorted(remaining):  # Sort for determinism
@@ -299,10 +311,12 @@ class Clusterer:
                         cluster_symbols.add(db)
                         assigned.add(db)
 
-            clusters.append(Cluster(
-                name=f"_auto_group_{len(clusters)}",
-                symbols=cluster_symbols,
-            ))
+            clusters.append(
+                Cluster(
+                    name=f"_auto_group_{len(clusters)}",
+                    symbols=cluster_symbols,
+                )
+            )
 
         return clusters
 
@@ -341,21 +355,21 @@ class Clusterer:
             result = []
             for i, cluster in enumerate(clusters):
                 modified = False
-                for mi, mcluster, overlap in clusters_to_modify:
+                for mi, _mcluster, overlap in clusters_to_modify:
                     if i == mi:
                         # Remove overlapping symbols
                         cluster.symbols -= overlap
                         # Create separate clusters for each forced-separated symbol
                         for sym in overlap:
-                            new_clusters_to_add.append(Cluster(
-                                name=f"_separated_{sym}",
-                                symbols={sym},
-                            ))
+                            new_clusters_to_add.append(
+                                Cluster(
+                                    name=f"_separated_{sym}",
+                                    symbols={sym},
+                                )
+                            )
                         modified = True
                         break
-                if not modified:
-                    result.append(cluster)
-                elif cluster.symbols:
+                if not modified or cluster.symbols:
                     result.append(cluster)
 
             result.extend(new_clusters_to_add)
@@ -418,8 +432,8 @@ class Clusterer:
            Python's hash() is randomized by PYTHONHASHSEED, making this
            fallback non-deterministic across process invocations. See
            _bugs/clusterer.py.yaml."""
-        symbols = [symbol_map.get(s) for s in cluster.symbols if s in symbol_map]
-        symbols = [s for s in symbols if s is not None]
+        symbols_raw = [symbol_map.get(s) for s in cluster.symbols if s in symbol_map]
+        symbols: List[Symbol] = [s for s in symbols_raw if s is not None]
 
         # Heuristic: if cluster has one main class, name after it
         classes = [s for s in symbols if s.kind == SymbolKind.CLASS]
@@ -428,12 +442,14 @@ class Clusterer:
             return self._to_snake_case(name)
 
         # If cluster has functions, look for common prefix
-        functions = [s for s in symbols if s.kind in (SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION)]
+        functions = [
+            s for s in symbols if s.kind in (SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION)
+        ]
         if functions:
             names = [f.name for f in functions]
             prefix = self._common_prefix(names)
             if prefix and len(prefix) > 3:
-                return prefix.rstrip('_')
+                return prefix.rstrip("_")
 
         # If cluster has constants, look for common prefix
         constants = [s for s in symbols if s.kind == SymbolKind.CONSTANT]
@@ -442,19 +458,19 @@ class Clusterer:
             # Remove common suffixes like _PATTERN, _REGEX, etc.
             common = self._common_prefix(names)
             if common and len(common) > 2:
-                return common.rstrip('_')
+                return common.rstrip("_")
 
         # Fallback: name after first symbol
         if symbols:
             name = symbols[0].name
             return self._to_snake_case(name)
 
-        return f"module_{hashlib.md5(str(sorted(cluster.symbols)).encode()).hexdigest()[:4]}"
+        return f"module_{hashlib.md5(str(sorted(cluster.symbols)).encode()).hexdigest()[:4]}"  # noqa: S324
 
     def _to_snake_case(self, name: str) -> str:
         """
         Convert CamelCase to snake_case, handling acronyms correctly.
-        
+
         Examples:
             KeyPattern -> key_pattern
             APIKey -> api_key
@@ -473,17 +489,14 @@ class Clusterer:
                 # Insert underscore before uppercase if:
                 # 1. Previous char is lowercase (camelCase boundary)
                 # 2. Next char exists and is lowercase (end of acronym)
-                if prev.islower():
-                    result.append('_')
-                    result.append(c.lower())
-                elif i + 1 < len(name) and name[i + 1].islower():
-                    result.append('_')
+                if prev.islower() or (i + 1 < len(name) and name[i + 1].islower()):
+                    result.append("_")
                     result.append(c.lower())
                 else:
                     result.append(c.lower())
             else:
                 result.append(c)
-        return ''.join(result)
+        return "".join(result)
 
     def _common_prefix(self, strings: List[str]) -> str:
         """Find common prefix among strings, stopping at underscore boundaries."""
@@ -493,11 +506,8 @@ class Clusterer:
         for s in strings[1:]:
             while not s.startswith(prefix):
                 # Remove last component (after underscore or last char)
-                last_underscore = prefix.rfind('_')
-                if last_underscore > 0:
-                    prefix = prefix[:last_underscore]
-                else:
-                    prefix = prefix[:-1]
+                last_underscore = prefix.rfind("_")
+                prefix = prefix[:last_underscore] if last_underscore > 0 else prefix[:-1]
                 if not prefix:
                     return ""
         return prefix

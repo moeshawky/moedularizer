@@ -5,9 +5,10 @@ Tests for file I/O, state management, and integration with the environment.
 LLMs typically work in isolation but fail when integrated.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 
 pytestmark = pytest.mark.integration
 from moedularizer import Moedularizer, MoedularizerConfig
@@ -47,7 +48,7 @@ CONSTANT = "hello"
         )
 
         # Run full pipeline
-        mod = Moedularizer(config)
+        Moedularizer(config)
         source = source_file.read_text()
 
         # Analyze
@@ -79,7 +80,11 @@ CONSTANT = "hello"
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
@@ -114,7 +119,7 @@ def test_file_io_with_large_file():
 
         output_dir = Path(tmpdir) / "output"
 
-        config = MoedularizerConfig(
+        MoedularizerConfig(
             source_file=source_file,
             output_dir=output_dir,
             package_name="large_package",
@@ -147,7 +152,7 @@ def foo():
 
         output_dir = Path(tmpdir) / "output"
 
-        config = MoedularizerConfig(
+        MoedularizerConfig(
             source_file=source_file,
             output_dir=output_dir,
             package_name="unicode_package",
@@ -177,7 +182,7 @@ def foo():
 
         output_dir = Path(tmpdir) / "output"
 
-        config = MoedularizerConfig(
+        MoedularizerConfig(
             source_file=source_file,
             output_dir=output_dir,
             package_name="special_package",
@@ -257,13 +262,17 @@ def test_backup_existing_files():
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
 
         # Write (should create backup)
-        written = generator.write_modules(modules, output_dir)
+        generator.write_modules(modules, output_dir)
 
         # Verify backup was created
         backup_file = existing_file.with_suffix(".py.bak")
@@ -317,7 +326,11 @@ def test_dry_run_does_not_modify_files():
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
@@ -380,13 +393,17 @@ def bar():
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
 
         # Validate
-        original_exports = {s.name for s in symbols if not s.name.startswith('_')}
+        original_exports = {s.name for s in symbols if not s.name.startswith("_")}
         validator = Validator(original_exports)
         result = validator.validate(modules, clusters, graph)
 
@@ -449,7 +466,11 @@ def baz():
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
@@ -475,17 +496,27 @@ def test_generator_cross_module_imports():
     cluster_b.external_deps = []
 
     symbol_map = {
-        "foo": Symbol(name="foo", kind=SymbolKind.FUNCTION,
-                       source="def foo():\n    return bar()", lineno=1, end_lineno=2),
-        "bar": Symbol(name="bar", kind=SymbolKind.FUNCTION,
-                       source="def bar():\n    return 42", lineno=3, end_lineno=4),
+        "foo": Symbol(
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo():\n    return bar()",
+            lineno=1,
+            end_lineno=2,
+        ),
+        "bar": Symbol(
+            name="bar",
+            kind=SymbolKind.FUNCTION,
+            source="def bar():\n    return 42",
+            lineno=3,
+            end_lineno=4,
+        ),
     }
     cluster_map = {"foo": "module_a", "bar": "module_b"}
 
     config = MoedularizerConfig(package_name="cross_pkg")
     generator = CodeGenerator(config)
 
-    symbols = list(symbol_map.values())
+    list(symbol_map.values())
     deps = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
     ]
@@ -499,8 +530,9 @@ def test_generator_cross_module_imports():
     module_a = next(m for m in modules if m.name == "module_a")
     module_b = next(m for m in modules if m.name == "module_b")
 
-    assert "from cross_pkg.module_b import bar" in module_a.imports_needed, \
+    assert "from cross_pkg.module_b import bar" in module_a.imports_needed, (
         f"Expected cross-module import, got: {module_a.imports_needed}"
+    )
     assert module_b.imports_needed == []
 
 
@@ -547,6 +579,7 @@ def test_cli_main_end_to_end():
     """Invoke cli.main() with patched sys.argv, verify pipeline runs and \
 produces output files."""
     import sys
+
     from moedularizer.cli import main
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -566,8 +599,10 @@ def world():
                 "moedularizer",
                 str(source_file),
                 str(output_dir),
-                "--package-name", "e2e_pkg",
-                "--max-symbols", "2",
+                "--package-name",
+                "e2e_pkg",
+                "--max-symbols",
+                "2",
             ]
             main()
         finally:

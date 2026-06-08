@@ -10,7 +10,7 @@ Runs multiple validation passes:
 5. Naming convention check (valid Python identifiers)
 """
 
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from moedularizer.dependency import DependencyGraph
 from moedularizer.types import Cluster, ModularizationResult, Module, SymbolKind
@@ -98,9 +98,7 @@ class Validator:
                         module_name = parts.rsplit(".", 1)[-1]
                         module_deps[module.name].add(module_name)
                     except (IndexError, ValueError):
-                        result.warnings.append(
-                            f"Could not parse import: {imp}"
-                        )
+                        result.warnings.append(f"Could not parse import: {imp}")
 
         # Check for cycles using iterative DFS with per-traversal path tracking.
         # Each DFS traversal maintains its own path_index dict, preventing
@@ -125,10 +123,8 @@ class Validator:
                 if node in path_index:
                     # Found a cycle — path_index maps node to its position
                     cycle_start = path_index[node]
-                    cycle = path[cycle_start:] + [node]
-                    result.warnings.append(
-                        f"Circular import: {' -> '.join(cycle)}"
-                    )
+                    cycle = [*path[cycle_start:], node]
+                    result.warnings.append(f"Circular import: {' -> '.join(cycle)}")
                     found_cycle = True
                     continue
 
@@ -147,9 +143,8 @@ class Validator:
             return found_cycle
 
         for module_name in module_deps:
-            if module_name not in visited:
-                if dfs_iterative(module_name):
-                    has_cycles = True
+            if module_name not in visited and dfs_iterative(module_name):
+                has_cycles = True
 
         return has_cycles
 
@@ -178,9 +173,7 @@ class Validator:
         # Check all original exports are present
         missing = self.original_exports - exported
         if missing:
-            result.warnings.append(
-                f"Missing exports in __init__.py: {sorted(missing)}"
-            )
+            result.warnings.append(f"Missing exports in __init__.py: {sorted(missing)}")
             return False
 
         result.preserved_exports = exported
@@ -205,11 +198,9 @@ class Validator:
                     symbol_counts[sym.name] = symbol_counts.get(sym.name, 0) + 1
 
         # Check for duplicates
-        for sym, count in symbol_counts.items():
+        for name, count in symbol_counts.items():
             if count > 1:
-                result.warnings.append(
-                    f"Symbol '{sym}' appears in {count} modules"
-                )
+                result.warnings.append(f"Symbol '{name}' appears in {count} modules")
 
         # Check for empty modules
         for module in modules:
@@ -217,9 +208,7 @@ class Validator:
                 continue
             sym_count = len([s for s in module.symbols if s.kind != SymbolKind.IMPORT])
             if sym_count == 0:
-                result.warnings.append(
-                    f"Module '{module.name}' is empty"
-                )
+                result.warnings.append(f"Module '{module.name}' is empty")
 
     def _check_module_sizes(
         self,

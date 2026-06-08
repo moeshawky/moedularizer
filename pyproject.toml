@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
 [project]
 name = "moedularizer"
 version = "0.1.0"
@@ -24,19 +28,77 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.urls]
-repository = "https://github.com/anomalyco/moedularizer"
+repository = "https://github.com/moeshawky/moedularizer"
 
 [project.scripts]
 moedularizer = "moedularizer.cli:main"
 
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.15",
+    "mypy>=1.0",
+    "pytest>=8",
+    "pytest-cov>=6",
+    "pre-commit>=4.0",
+]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["moedularizer*"]
+[dependency-groups]
+dev = [
+    "ruff>=0.15",
+    "mypy>=1.0",
+    "pytest>=8",
+    "pytest-cov>=6",
+    "pre-commit>=4.0",
+    "hypothesis>=6.141.1",
+]
 
+# ── Ruff (linter + formatter) ──────────────────────────────────
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle errors + warnings
+    "F",         # pyflakes (undefined names, unused imports)
+    "I",         # isort (import ordering)
+    "B",         # flake8-bugbear (common bug patterns)
+    "SIM",       # flake8-simplify
+    "RUF",       # Ruff-specific rules
+    "S",         # flake8-bandit (security)
+    "C4",        # flake8-comprehensions
+    "RET",       # flake8-return
+    "PTH",       # flake8-use-pathlib
+    "TC",        # flake8-type-checking
+]
+ignore = ["E501", "SIM102"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S108", "B011", "E402", "F811", "RUF059"]  # asserts, pytestmark, reimports, unused unpacking in tests ok
+"src/moedularizer/__init__.py" = ["F401"]   # allow unused imports in __init__ (re-exports)
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+# ── mypy (type checker) ─────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+exclude = ["build"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "moedularizer.analyzer"
+disallow_untyped_defs = false
+
+# ── pytest ──────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -54,3 +116,22 @@ markers = [
     "property: Property tests (G-SEM)",
     "regression: Regression tests (G-DRIFT)",
 ]
+
+# ── coverage ────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["src/moedularizer"]
+omit = ["tests/*", "*/conftest.py", "build/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+]
+
+# ── Hatchling package config ──────────────────────────────────-─
+[tool.hatch.build.targets.wheel]
+packages = ["src/moedularizer"]

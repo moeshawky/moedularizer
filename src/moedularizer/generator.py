@@ -13,7 +13,7 @@ source to disk with backup. Imports types.py symbols, config.py
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from moedularizer.config import MoedularizerConfig
 from moedularizer.dependency import DependencyGraph
@@ -23,11 +23,6 @@ from moedularizer.types import (
     Symbol,
     SymbolKind,
 )
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from moedularizer.imodent_bridge import ImodentReport
 
 
 class CodeGenerator:
@@ -51,7 +46,7 @@ class CodeGenerator:
         source: str,
         dunder_all: Optional[List[str]] = None,
         graph: Optional[DependencyGraph] = None,
-        imodent_report=None,  # ImodentReport | None
+        imodent_report: Optional[Any] = None,  # ImodentReport | None
     ) -> List[Module]:
         """Generate modules from clusters.
 
@@ -107,9 +102,7 @@ class CodeGenerator:
                         )
 
             # Only include external imports actually used by this module's symbols
-            module_ext_imports = self._filter_imports_for_module(
-                symbols, external_imports, source
-            )
+            module_ext_imports = self._filter_imports_for_module(symbols, external_imports, source)
 
             modules.append(
                 Module(
@@ -125,8 +118,9 @@ class CodeGenerator:
 
         # Compute auto-exports: all public non-IMPORT symbols across all clusters
         auto_exports_set: Set[str] = {
-            s.name for s in symbol_map.values()
-            if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT
+            s.name
+            for s in symbol_map.values()
+            if not s.name.startswith("_") and s.kind != SymbolKind.IMPORT
         }
         auto_exports = list(auto_exports_set)
 
@@ -143,7 +137,7 @@ class CodeGenerator:
             for m in modules:
                 if not m.is_init:
                     for s in m.symbols:
-                        if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT:
+                        if not s.name.startswith("_") and s.kind != SymbolKind.IMPORT:
                             init_imports.append(
                                 f"from {self.config.package_name}.{m.name} import {s.name}"
                             )
@@ -194,7 +188,7 @@ class CodeGenerator:
         if module.is_init:
             return f"{self.config.package_name} — auto-modularized package."
 
-        symbol_kinds = set(s.kind for s in module.symbols)
+        symbol_kinds = {s.kind for s in module.symbols}
         kind_names = {
             SymbolKind.FUNCTION: "functions",
             SymbolKind.ASYNC_FUNCTION: "async functions",
@@ -216,12 +210,43 @@ class CodeGenerator:
         third-party packages.
         """
         stdlib_modules = {
-            "abc", "argparse", "ast", "asyncio", "collections", "copy",
-            "dataclasses", "datetime", "enum", "functools", "glob", "hashlib",
-            "io", "itertools", "json", "logging", "math", "os", "pathlib",
-            "pickle", "re", "shutil", "signal", "socket", "sqlite3", "sys",
-            "tempfile", "textwrap", "threading", "time", "traceback", "typing",
-            "unittest", "urllib", "uuid", "warnings", "weakref",
+            "abc",
+            "argparse",
+            "ast",
+            "asyncio",
+            "collections",
+            "copy",
+            "dataclasses",
+            "datetime",
+            "enum",
+            "functools",
+            "glob",
+            "hashlib",
+            "io",
+            "itertools",
+            "json",
+            "logging",
+            "math",
+            "os",
+            "pathlib",
+            "pickle",
+            "re",
+            "shutil",
+            "signal",
+            "socket",
+            "sqlite3",
+            "sys",
+            "tempfile",
+            "textwrap",
+            "threading",
+            "time",
+            "traceback",
+            "typing",
+            "unittest",
+            "urllib",
+            "uuid",
+            "warnings",
+            "weakref",
         }
 
         stdlib_imports = []
@@ -235,7 +260,11 @@ class CodeGenerator:
                 if imp.startswith("from "):
                     module_path = imp.split(" from ")[1].split(" import ")[0].split(".")[0]
                 else:
-                    module_path = imp.split(" import ")[1].split(".")[0] if " import " in imp else imp.split()[1].split(".")[0]
+                    module_path = (
+                        imp.split(" import ")[1].split(".")[0]
+                        if " import " in imp
+                        else imp.split()[1].split(".")[0]
+                    )
             else:
                 continue
 
@@ -268,8 +297,8 @@ class CodeGenerator:
         if module.imports_needed:
             if stdlib_imports or third_party_imports:
                 lines.append("")
-            for imp in sorted(module.imports_needed):
-                lines.append(imp)
+            for imp_str in sorted(module.imports_needed):
+                lines.append(imp_str)
 
     def write_modules(self, modules: List[Module], output_dir: Path) -> List[Path]:
         """Write all modules to disk."""
@@ -308,8 +337,8 @@ class CodeGenerator:
 
         # Strip string literals to avoid false positive matches
         # e.g. "json" inside ".json" file extension
-        stripped = re.sub(r'""".*?"""', '', symbol_source, flags=re.DOTALL)
-        stripped = re.sub(r"'''.*?'''", '', stripped, flags=re.DOTALL)
+        stripped = re.sub(r'""".*?"""', "", symbol_source, flags=re.DOTALL)
+        stripped = re.sub(r"'''.*?'''", "", stripped, flags=re.DOTALL)
         stripped = re.sub(r'"[^"]*"', '""', stripped)
         stripped = re.sub(r"'[^']*'", "''", stripped)
 
@@ -317,7 +346,7 @@ class CodeGenerator:
         for module_path, names in external_imports.items():
             for name in names:
                 # Match whole words only, on code (not string literals)
-                pattern = r'(?<![a-zA-Z0-9_])' + re.escape(name) + r'(?![a-zA-Z0-9_])'
+                pattern = r"(?<![a-zA-Z0-9_])" + re.escape(name) + r"(?![a-zA-Z0-9_])"
                 if re.search(pattern, stripped):
                     used_names.add((module_path, name))
 

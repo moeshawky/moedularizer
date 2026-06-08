@@ -6,6 +6,7 @@ LLMs produce plausible but wrong logic - need property-based testing.
 """
 
 import pytest
+
 from moedularizer.analyzer import Analyzer
 
 pytestmark = pytest.mark.property
@@ -55,8 +56,14 @@ import os
     symbols, _, _, _, _ = analyzer.analyze(source, filename="test.py")
 
     # Invariant: All symbols have valid kinds
-    valid_kinds = {SymbolKind.CLASS, SymbolKind.FUNCTION, SymbolKind.ASYNC_FUNCTION,
-                   SymbolKind.CONSTANT, SymbolKind.IMPORT, SymbolKind.MODULE_LEVEL_CODE}
+    valid_kinds = {
+        SymbolKind.CLASS,
+        SymbolKind.FUNCTION,
+        SymbolKind.ASYNC_FUNCTION,
+        SymbolKind.CONSTANT,
+        SymbolKind.IMPORT,
+        SymbolKind.MODULE_LEVEL_CODE,
+    }
 
     for symbol in symbols:
         assert symbol.kind in valid_kinds, f"Symbol {symbol.name} has invalid kind: {symbol.kind}"
@@ -133,8 +140,8 @@ def bar():
 
 def test_module_invariant():
     """G-SEM: All modules have valid names and symbols."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module
 
     config = MoedularizerConfig()
@@ -210,11 +217,15 @@ def bar():
 
 def test_dependency_graph_invariant():
     """G-SEM: Dependency graph maintains consistency."""
-    from moedularizer.types import Symbol, Dependency, DependencyType
+    from moedularizer.types import Dependency, DependencyType, Symbol
 
-    symbols = [
-        Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2),
-        Symbol(name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4),
+    [
+        Symbol(
+            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+        ),
+        Symbol(
+            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+        ),
     ]
     dependencies = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
@@ -248,8 +259,8 @@ def test_config_invariant():
 
 def test_generator_preserves_symbol_source():
     """G-SEM: Generator preserves symbol source code."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module, Symbol, SymbolKind
 
     config = MoedularizerConfig()
@@ -276,8 +287,8 @@ def test_generator_preserves_symbol_source():
 
 def test_generator_imports_invariant():
     """G-SEM: Generator generates valid imports."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module
 
     config = MoedularizerConfig()
@@ -296,8 +307,8 @@ def test_generator_imports_invariant():
 
 def test_validator_invariant():
     """G-SEM: Validator returns valid result."""
-    from moedularizer.validator import Validator
     from moedularizer.types import ModularizationResult
+    from moedularizer.validator import Validator
 
     validator = Validator(set())
 
@@ -333,12 +344,18 @@ def bar():
 def test_symbol_ordering_invariant():
     """G-SEM: Symbol ordering respects dependencies."""
     from moedularizer.dependency import build_graph
-    from moedularizer.types import Symbol, Dependency, DependencyType, SymbolKind
+    from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-    symbols = [
-        Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2),
-        Symbol(name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4),
-        Symbol(name="baz", kind=SymbolKind.FUNCTION, source="def baz(): pass", lineno=5, end_lineno=6),
+    [
+        Symbol(
+            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+        ),
+        Symbol(
+            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+        ),
+        Symbol(
+            name="baz", kind=SymbolKind.FUNCTION, source="def baz(): pass", lineno=5, end_lineno=6
+        ),
     ]
     dependencies = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
@@ -420,7 +437,7 @@ def bar():
 
     # Invariant: __all__ is extracted
     assert dunder_all is not None
-    assert dunder_all == ['foo', 'bar']
+    assert dunder_all == ["foo", "bar"]
 
 
 def test_external_imports_invariant():
@@ -448,16 +465,49 @@ from pathlib import Path
 
 # ── Property-based tests using hypothesis ──────────────────────────────
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 # Valid Python identifiers (not keywords)
-PYTHON_KEYWORDS = frozenset({
-    "False", "None", "True", "and", "as", "assert", "async", "await",
-    "break", "class", "continue", "def", "del", "elif", "else", "except",
-    "finally", "for", "from", "global", "if", "import", "in", "is",
-    "lambda", "nonlocal", "not", "or", "pass", "raise", "return",
-    "try", "while", "with", "yield",
-})
+PYTHON_KEYWORDS = frozenset(
+    {
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield",
+    }
+)
 
 valid_identifier = st.from_regex(r"\A[a-zA-Z_][a-zA-Z0-9_]*\Z").filter(
     lambda s: s not in PYTHON_KEYWORDS
@@ -477,26 +527,40 @@ correct Symbol name and Function kind are extracted."""
 
 
 @given(
-    names=st.lists(st.text(alphabet=st.characters(min_codepoint=97, max_codepoint=122), min_size=1, max_size=8), min_size=2, max_size=8, unique=True),
+    names=st.lists(
+        st.text(
+            alphabet=st.characters(min_codepoint=97, max_codepoint=122), min_size=1, max_size=8
+        ),
+        min_size=2,
+        max_size=8,
+        unique=True,
+    ),
 )
 def test_clustering_idempotent_property(names):
     """Cluster a set of symbols twice and verify identical results."""
-    from moedularizer.types import Symbol, Dependency, DependencyType
-    from moedularizer.config import MoedularizerConfig
     from moedularizer.clusterer import Clusterer
+    from moedularizer.config import MoedularizerConfig
+    from moedularizer.types import Dependency, DependencyType, Symbol
 
     symbols = [
         Symbol(
-            name=n, kind=SymbolKind.FUNCTION,
-            source=f"def {n}(): pass", lineno=1, end_lineno=2,
+            name=n,
+            kind=SymbolKind.FUNCTION,
+            source=f"def {n}(): pass",
+            lineno=1,
+            end_lineno=2,
         )
         for n in names
     ]
     dependencies = []
     if len(names) >= 2:
-        dependencies.append(Dependency(
-            source=names[0], target=names[1], dep_type=DependencyType.CALLS,
-        ))
+        dependencies.append(
+            Dependency(
+                source=names[0],
+                target=names[1],
+                dep_type=DependencyType.CALLS,
+            )
+        )
 
     config = MoedularizerConfig(max_symbols_per_module=5)
     clusterer = Clusterer(config)
@@ -504,21 +568,21 @@ def test_clustering_idempotent_property(names):
     clusters_b = clusterer.cluster(symbols, dependencies)
 
     def cluster_fingerprint(clusters):
-        return tuple(sorted(
-            (c.name, tuple(sorted(c.symbols))) for c in clusters
-        ))
+        return tuple(sorted((c.name, tuple(sorted(c.symbols))) for c in clusters))
 
     assert cluster_fingerprint(clusters_a) == cluster_fingerprint(clusters_b)
 
 
 @given(
-    func_name=valid_identifier.filter(lambda s: s.lower() not in {"import", "from", "class", "def"}),
+    func_name=valid_identifier.filter(
+        lambda s: s.lower() not in {"import", "from", "class", "def"}
+    ),
 )
 def test_generator_preserves_source_property(func_name):
     """Given a function source, render it into a module, verify source \
 appears exactly once and is not mutated."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module, Symbol, SymbolKind
 
     source_code = f"def {func_name}():\n    pass"
@@ -543,6 +607,6 @@ appears exactly once and is not mutated."""
     assert idx > 0  # Not at start (docstring comes first)
     # Verify the source is not mutated — the exact substring matches
     before = rendered[:idx]
-    after = rendered[idx + len(source_code):]
+    after = rendered[idx + len(source_code) :]
     recon = before + source_code + after
     assert recon == rendered

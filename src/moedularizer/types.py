@@ -17,6 +17,7 @@ from typing import List, Optional, Set, Tuple
 
 class SymbolKind(Enum):
     """Classification of Python source symbols."""
+
     CLASS = "class"
     FUNCTION = "function"
     ASYNC_FUNCTION = "async_function"
@@ -28,6 +29,7 @@ class SymbolKind(Enum):
 @dataclass(frozen=True)
 class Symbol:
     """A named symbol in a Python module."""
+
     # `name` and `kind` lack inline comments but are self-explanatory from
     # the class docstring. `docstring: Optional[str] = None` lacks a comment
     # — None means "no docstring found," standard Python convention.
@@ -37,24 +39,25 @@ class Symbol:
     # defaults to lineno), decorators are raw source strings not resolved names.
     name: str
     kind: SymbolKind
-    source: str           # full source text including line breaks
-    lineno: int           # start line (1-indexed)
-    end_lineno: int       # end line (1-indexed, inclusive; defaults to lineno if unknown)
+    source: str  # full source text including line breaks
+    lineno: int  # start line (1-indexed)
+    end_lineno: int  # end line (1-indexed, inclusive; defaults to lineno if unknown)
     docstring: Optional[str] = None
     decorators: Tuple[str, ...] = ()  # raw decorator source strings (not resolved names)
 
     # Hash/eq on name only — intentional for the clustering pipeline where
     # cluster.symbols is Set[str]. set(symbols) loses distinct symbols with
     # name collisions, but names are unique within a module.
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Symbol) and self.name == other.name
 
 
 class DependencyType(Enum):
     """Classification of dependency edges."""
+
     CALLS = "calls"
     INHERITS = "inherits"
     USES_CONSTANT = "uses_constant"
@@ -67,8 +70,9 @@ class DependencyType(Enum):
 @dataclass
 class Dependency:
     """An edge: source symbol depends on target symbol."""
-    source: str           # symbol name that has the dependency
-    target: str           # symbol name being depended upon
+
+    source: str  # symbol name that has the dependency
+    target: str  # symbol name being depended upon
     dep_type: DependencyType
     line: int = 0
 
@@ -76,10 +80,13 @@ class Dependency:
 @dataclass
 class Module:
     """A generated output module."""
-    name: str             # e.g. "key_patterns"
+
+    name: str  # e.g. "key_patterns"
     symbols: List[Symbol] = field(default_factory=list)
     dependencies: List[Dependency] = field(default_factory=list)
-    imports_needed: List[str] = field(default_factory=list)  # Field comment: 'sorted for determinism; not insertion-ordered'. The
+    imports_needed: List[str] = field(
+        default_factory=list
+    )  # Field comment: 'sorted for determinism; not insertion-ordered'. The
     # comment lives on the dataclass field declaration, but the stored value
     # is NOT sorted — generator.py:91 deduplicates via `list(set(...))`
     # which produces hash-ordered output, not sorted output. The determinism
@@ -88,9 +95,11 @@ class Module:
     # writing. The field's actual invariant is "List (for downstream sorting),
     # not Set (to allow duplicates during accumulation that are deduplicated
     # later)."
-    external_imports: List[str] = field(default_factory=list)  # stdlib/third-party
+    external_imports: List[Tuple[str, List[str]]] = field(
+        default_factory=list
+    )  # (module_path, [names])
     is_init: bool = False
-    all_exports: List[str] = field(default_factory=list)  # for __all__
+    all_exports: Optional[List[str]] = None  # for __all__, set after module creation
 
     @property
     def symbol_names(self) -> Set[str]:
@@ -104,6 +113,7 @@ class Module:
 @dataclass
 class Cluster:
     """A group of symbols that should live together."""
+
     name: str
     symbols: Set[str] = field(default_factory=set)
     internal_deps: List[Dependency] = field(default_factory=list)
@@ -121,6 +131,7 @@ class Cluster:
 @dataclass
 class ModularizationResult:
     """Output of the full modularization pipeline."""
+
     modules: List[Module] = field(default_factory=list)
     clusters: List[Cluster] = field(default_factory=list)
     preserved_exports: Set[str] = field(default_factory=set)

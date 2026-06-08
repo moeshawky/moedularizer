@@ -5,9 +5,9 @@ Tests for error handling and fault injection.
 LLMs typically only handle happy paths and miss error paths.
 """
 
-import pytest
-import tempfile
 from pathlib import Path
+
+import pytest
 
 pytestmark = pytest.mark.unit
 from moedularizer.analyzer import Analyzer
@@ -159,7 +159,6 @@ def test_write_modules_with_nonexistent_dir():
 def test_write_modules_with_permission_error():
     """G-ERR: Test handling of permission errors."""
     import tempfile
-    import os
 
     config = MoedularizerConfig()
     generator = CodeGenerator(config)
@@ -174,7 +173,7 @@ def test_write_modules_with_permission_error():
         output_dir.mkdir()
 
         # Make directory read-only
-        os.chmod(output_dir, 0o444)
+        output_dir.chmod(0o444)
 
         try:
             # Should raise OSError
@@ -182,14 +181,14 @@ def test_write_modules_with_permission_error():
                 generator.write_modules(modules, output_dir)
         finally:
             # Restore permissions for cleanup
-            os.chmod(output_dir, 0o755)
+            output_dir.chmod(0o755)
 
 
 def test_validator_with_empty_modules():
     """G-ERR: Test validation with no modules."""
     validator = Validator(set())
 
-    from moedularizer.types import Cluster, ModularizationResult
+    from moedularizer.types import ModularizationResult
 
     result = validator.validate([], [], build_graph([]))
 
@@ -200,7 +199,7 @@ def test_validator_with_empty_modules():
 
 def test_validator_with_circular_imports():
     """G-ERR: Test detection of circular imports."""
-    from moedularizer.types import Module, Cluster, Dependency, DependencyType
+    from moedularizer.types import Cluster, Module
 
     validator = Validator(set())
 
@@ -238,9 +237,9 @@ def test_dependency_graph_with_empty_nodes():
 
 def test_dependency_graph_with_self_loop():
     """G-ERR: Test dependency graph with self-loop."""
-    from moedularizer.types import Symbol, Dependency, DependencyType, SymbolKind
+    from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-    symbols = [Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2)]
+    [Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2)]
     dependencies = [Dependency(source="foo", target="foo", dep_type=DependencyType.CALLS)]
 
     graph = build_graph(dependencies)
@@ -251,11 +250,15 @@ def test_dependency_graph_with_self_loop():
 
 def test_topological_sort_with_cycles():
     """G-ERR: Test topological sort with cycles."""
-    from moedularizer.types import Symbol, Dependency, DependencyType, SymbolKind
+    from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-    symbols = [
-        Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2),
-        Symbol(name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4),
+    [
+        Symbol(
+            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+        ),
+        Symbol(
+            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+        ),
     ]
     dependencies = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
@@ -276,9 +279,7 @@ def test_topological_sort_with_cycles():
 def test_clusterer_with_force_groupings_typo():
     """G-ERR: Test clusterer with typos in force_groupings."""
     config = MoedularizerConfig(
-        force_groupings={
-            "test_group": ["nonexistent_symbol", "another_nonexistent"]
-        }
+        force_groupings={"test_group": ["nonexistent_symbol", "another_nonexistent"]}
     )
     clusterer = Clusterer(config)
 
@@ -298,9 +299,7 @@ def foo():
 
 def test_clusterer_with_force_separations():
     """G-ERR: Test clusterer with forced separations."""
-    config = MoedularizerConfig(
-        force_separations=[{"foo", "bar"}]
-    )
+    config = MoedularizerConfig(force_separations=[{"foo", "bar"}])
     clusterer = Clusterer(config)
 
     source = """
@@ -353,12 +352,10 @@ def test_module_name_sanitization_edge_cases():
         assert sanitized == expected, f"Expected {expected}, got {sanitized} for input {input_name}"
 
 
-
-
 def test_render_module_with_no_symbols():
     """G-ERR: Test rendering module with no symbols."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module
 
     config = MoedularizerConfig()
@@ -376,8 +373,8 @@ def test_render_module_with_no_symbols():
 
 def test_render_init_with_no_exports():
     """G-ERR: Test rendering __init__.py with no exports."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module
 
     config = MoedularizerConfig()

@@ -14,6 +14,7 @@ def test_imports_exist():
     """G-HALL: Verify all imports exist (no hallucinated packages)."""
     # Test main package import
     import moedularizer
+
     assert moedularizer is not None
 
     # Test all module imports
@@ -21,17 +22,12 @@ def test_imports_exist():
         Moedularizer,
         MoedularizerConfig,
     )
+
     assert Moedularizer is not None
     assert MoedularizerConfig is not None
 
     # Test submodules
-    from moedularizer import analyzer
-    from moedularizer import clusterer
-    from moedularizer import config
-    from moedularizer import dependency
-    from moedularizer import generator
-    from moedularizer import types
-    from moedularizer import validator
+    from moedularizer import analyzer, clusterer, config, dependency, generator, types, validator
 
     assert analyzer is not None
     assert clusterer is not None
@@ -65,28 +61,38 @@ def test_stdlib_imports_only():
 
     # Verify no external dependencies (only stdlib)
     stdlib_modules = {
-        'ast', 're', 'textwrap', 'pathlib', 'argparse', 'sys',
-        'collections', 'dataclasses', 'enum', 'typing', 'defaultdict',
+        "ast",
+        "re",
+        "textwrap",
+        "pathlib",
+        "argparse",
+        "sys",
+        "collections",
+        "dataclasses",
+        "enum",
+        "typing",
+        "defaultdict",
     }
 
     for module in modules:
         # Check module's __dict__ for imports
         for name in dir(module):
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
             obj = getattr(module, name)
             if isinstance(obj, type):
                 # Check if it's from stdlib
-                module_name = obj.__module__.split('.')[0]
-                if module_name not in stdlib_modules and module_name != 'moedularizer':
+                module_name = obj.__module__.split(".")[0]
+                if module_name not in stdlib_modules and module_name != "moedularizer":
                     # Allow builtins
-                    if module_name != 'builtins':
+                    if module_name != "builtins":
                         pytest.fail(f"Non-stdlib import detected: {module_name}")
 
 
 def test_cli_import():
     """G-HALL: Verify CLI module can be imported."""
     from moedularizer.cli import main
+
     assert main is not None
     assert callable(main)
 
@@ -94,13 +100,13 @@ def test_cli_import():
 def test_types_exist():
     """G-HALL: Verify all type definitions exist."""
     from moedularizer.types import (
-        Symbol,
-        SymbolKind,
+        Cluster,
         Dependency,
         DependencyType,
-        Module,
-        Cluster,
         ModularizationResult,
+        Module,
+        Symbol,
+        SymbolKind,
     )
 
     assert Symbol is not None
@@ -142,8 +148,8 @@ def test_clusterer_class_exists():
 
 def test_generator_class_exists():
     """G-HALL: Verify generator class exists and is instantiable."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
 
     config = MoedularizerConfig()
     generator = CodeGenerator(config)

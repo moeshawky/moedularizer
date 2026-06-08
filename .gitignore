@@ -30,8 +30,11 @@ dist/
 .env.*
 *.local
 
-# Python version pinning
-.python-version
+# Mypy cache
+.mypy_cache/
+
+# Hypothesis testing cache
+.hypothesis/
 
 # Logs
 *.log

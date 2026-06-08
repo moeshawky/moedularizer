@@ -5,9 +5,9 @@ Tests for security issues like path traversal, arbitrary file writes, etc.
 This is the second gate - security vulnerabilities compound everything else.
 """
 
-import pytest
-import tempfile
 from pathlib import Path
+
+import pytest
 
 pytestmark = pytest.mark.smoke
 from moedularizer import Moedularizer, MoedularizerConfig
@@ -44,8 +44,8 @@ def test_path_traversal_prevention_in_module_names():
 
 def test_filename_sanitization():
     """G-SEC: Verify filename sanitization in generator."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
 
     config = MoedularizerConfig()
     generator = CodeGenerator(config)
@@ -62,7 +62,6 @@ def test_filename_sanitization():
 def test_no_arbitrary_file_write():
     """G-SEC: Verify output_dir is respected and files aren't written elsewhere."""
     import tempfile
-    import os
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_dir = Path(tmpdir) / "output"
@@ -84,7 +83,7 @@ def bar():
             dry_run=False,
         )
 
-        mod = Moedularizer(config)
+        Moedularizer(config)
         source = source_file.read_text()
 
         # Analyze and generate
@@ -119,7 +118,11 @@ def bar():
                     external_imports_dict[module_path].append(name)
 
         modules = generator.generate(
-            clusters, symbol_map, cluster_map, external_imports_dict, source,
+            clusters,
+            symbol_map,
+            cluster_map,
+            external_imports_dict,
+            source,
             dunder_all=dunder_all,
             graph=graph,
         )
@@ -208,8 +211,8 @@ def foo():
 
 def test_no_code_execution_in_generated_modules():
     """G-SEC: Verify generated modules don't execute arbitrary code."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module, Symbol, SymbolKind
 
     config = MoedularizerConfig()
@@ -217,13 +220,15 @@ def test_no_code_execution_in_generated_modules():
 
     # Create a module with potential dangerous code
     module = Module(name="test")
-    module.symbols.append(Symbol(
-        name="dangerous",
-        kind=SymbolKind.FUNCTION,
-        source="def dangerous():\n    pass",
-        lineno=1,
-        end_lineno=2,
-    ))
+    module.symbols.append(
+        Symbol(
+            name="dangerous",
+            kind=SymbolKind.FUNCTION,
+            source="def dangerous():\n    pass",
+            lineno=1,
+            end_lineno=2,
+        )
+    )
 
     # Render the module
     rendered = generator.render_module(module)
@@ -236,8 +241,8 @@ def test_no_code_execution_in_generated_modules():
 
 def test_module_level_code_isolation():
     """G-SEC: Verify module-level code is properly isolated."""
-    from moedularizer.generator import CodeGenerator
     from moedularizer.config import MoedularizerConfig
+    from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module, Symbol, SymbolKind
 
     config = MoedularizerConfig()
@@ -245,13 +250,15 @@ def test_module_level_code_isolation():
 
     # Create a module with module-level code
     module = Module(name="test")
-    module.symbols.append(Symbol(
-        name="__module_level_code__",
-        kind=SymbolKind.MODULE_LEVEL_CODE,
-        source="x = 1",
-        lineno=1,
-        end_lineno=1,
-    ))
+    module.symbols.append(
+        Symbol(
+            name="__module_level_code__",
+            kind=SymbolKind.MODULE_LEVEL_CODE,
+            source="x = 1",
+            lineno=1,
+            end_lineno=1,
+        )
+    )
 
     # Render the module
     rendered = generator.render_module(module)

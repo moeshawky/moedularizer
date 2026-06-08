@@ -14,14 +14,28 @@ generated module structure.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
-from imodent import AnalysisConfig, AnalysisCoordinator
+if TYPE_CHECKING:
+    from imodent import AnalysisConfig, AnalysisCoordinator
+
+# Conditional import — imodent is an optional dependency.
+# When unavailable, ImodentBridge.analyze_project raises RuntimeError
+# with a descriptive message instead of crashing at import time.
+try:
+    from imodent import AnalysisConfig, AnalysisCoordinator
+
+    _imodent_available = True
+except ImportError:
+    _imodent_available = False
+    AnalysisConfig = None  # type: ignore[assignment,misc,unused-ignore]
+    AnalysisCoordinator = None  # type: ignore[assignment,misc,unused-ignore]
 
 
 @dataclass
 class ImportUsage:
     """Per-import usage report from imodent analysis."""
+
     module: str
     name: Optional[str]
     used: bool
@@ -43,6 +57,7 @@ class ImodentReport:
         project-wide dependency graph.
     warnings: human-readable warning strings about import hygiene issues.
     """
+
     unused_imports: Set[Tuple[str, Optional[str]]] = field(default_factory=set)
     import_usage: Dict[Path, List[ImportUsage]] = field(default_factory=dict)
     cross_file_deps: Dict[str, Set[str]] = field(default_factory=dict)
@@ -104,7 +119,7 @@ class ImodentBridge:
         clean_imports = report.filter_external_imports(external_imports_dict)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._coordinator: Optional[AnalysisCoordinator] = None
         self._last_result = None
 
@@ -123,7 +138,12 @@ class ImodentBridge:
 
         Returns:
             ImodentReport with unused imports, usage data, and cross-file deps.
+
+        Raises:
+            RuntimeError: If imodent is not installed (optional dependency).
         """
+        if not _imodent_available:
+            raise RuntimeError("imodent is not installed. Install it with: pip install imodent")
         config = AnalysisConfig(
             check_imports=True,
             check_syntax=check_syntax,
@@ -135,7 +155,7 @@ class ImodentBridge:
 
         return self._build_report(result)
 
-    def _build_report(self, result) -> ImodentReport:
+    def _build_report(self, result: Any) -> ImodentReport:
         """Extract moedularizer-relevant data from an AnalysisResult.
 
         Iterates over findings to populate unused_imports and import_usage.
@@ -178,7 +198,7 @@ class ImodentBridge:
             if finding.type.startswith("circular"):
                 warnings.append(f"{finding.file}: {finding.message}")
 
-        for (mod, name) in sorted(unused):
+        for mod, name in sorted(unused):
             if name is not None:
                 warnings.append(
                     f"Unused import: 'from {mod} import {name}' at "
@@ -189,13 +209,11 @@ class ImodentBridge:
 
         try:
             graph = result.context.graph
-            if hasattr(graph, '_imports'):
+            if hasattr(graph, "_imports"):
                 for source, targets in graph._imports.items():
                     cross_file_deps[source] = set(targets)
         except (AttributeError, TypeError) as e:
-            warnings.append(
-                f"Failed to extract cross-file dependency graph: {e}"
-            )
+            warnings.append(f"Failed to extract cross-file dependency graph: {e}")
 
         return ImodentReport(
             unused_imports=unused,

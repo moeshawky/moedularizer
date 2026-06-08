@@ -5,8 +5,9 @@ Tests for edge cases in AST parsing, clustering, and code generation.
 LLMs systematically miss edge cases that humans rarely forget.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 pytestmark = pytest.mark.unit
 from moedularizer.analyzer import Analyzer
@@ -250,7 +251,7 @@ def baz():
         source, filename="dunder_all.py"
     )
 
-    assert dunder_all == ['foo', 'bar', 'baz']
+    assert dunder_all == ["foo", "bar", "baz"]
 
 
 def test_module_level_code_extraction():
@@ -296,6 +297,7 @@ def foo():
 def test_generator_dry_run_guard():
     """G-CTX: write_modules returns [] when config.dry_run is True."""
     import tempfile
+
     from moedularizer.generator import CodeGenerator
     from moedularizer.types import Module
 
@@ -427,7 +429,11 @@ SYMBOL_KIND_CASES = [
     ("FOO = 42\n", SymbolKind.CONSTANT, "FOO"),
     ("import os\n", SymbolKind.IMPORT, "import os"),
     ("from pathlib import Path\n", SymbolKind.IMPORT, "from pathlib import Path"),
-    ("def foo():\n    pass\n\nclass Bar:\n    pass\n", SymbolKind.FUNCTION, "def foo in mixed file"),
+    (
+        "def foo():\n    pass\n\nclass Bar:\n    pass\n",
+        SymbolKind.FUNCTION,
+        "def foo in mixed file",
+    ),
     ("def foo():\n    pass\n\nclass Bar:\n    pass\n", SymbolKind.CLASS, "class Bar in mixed file"),
 ]
 
@@ -446,5 +452,6 @@ def test_symbol_kind_classification(source_snippet, expected_kind, description):
         assert len(symbols) > 0, f"No symbols found for: {description}"
         found = symbols[0]
 
-    assert found.kind == expected_kind, \
+    assert found.kind == expected_kind, (
         f"Expected {expected_kind} for {description}, got {found.kind}"
+    )
