@@ -31,6 +31,7 @@ from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig
 from moedularizer.dependency import DependencyGraph, build_graph
 from moedularizer.generator import CodeGenerator
+from moedularizer.imodent_bridge import ImodentBridge, ImodentReport
 from moedularizer.types import (
     Cluster,
     Dependency,
@@ -51,6 +52,9 @@ __all__ = [
     "Clusterer",
     "CodeGenerator",
     "Validator",
+    # imodent bridge
+    "ImodentBridge",
+    "ImodentReport",
     # Graph
     "DependencyGraph",
     "build_graph",
@@ -120,24 +124,32 @@ class Moedularizer:
            None (programmatic use), filename resolves to "None" — cosmetic
            only, affects SyntaxError messages.
 
-        2. Clustering (Clusterer). Groups symbols into Cluster objects
+        2. Imodent analysis (optional). When config.use_imodent is True,
+           runs ImodentBridge.analyze_project() on the project directory
+           (source_file.parent if source_file is set, else current
+           directory). Produces an ImodentReport with unused import
+           detection and cross-file dependency data.
+
+        3. Clustering (Clusterer). Groups symbols into Cluster objects
            via the 7-pass clustering pipeline gated by config thresholds
            and boolean flags.
 
-        3. Mapping construction. Builds `symbol_map` (name → Symbol) for
+        4. Mapping construction. Builds `symbol_map` (name → Symbol) for
            code generation lookups and `cluster_map` (symbol name →
            cluster name) for cross-module import resolution. Converts
            `external_imports` from List[Tuple] to Dict[str, List[str]]
            (merging duplicate module_path entries).
 
-        4. Code generation (CodeGenerator). Builds a DependencyGraph via
-           build_graph(), then calls generate() with 8 parameters to
-           produce List[Module] with cross-module imports resolved.
+        5. Code generation (CodeGenerator). Builds a DependencyGraph via
+           build_graph(), then calls generate() with 9 parameters (8
+           original + optional imodent_report) to produce List[Module]
+           with cross-module imports resolved and unused imports pruned.
 
-        5. Export computation + validation (Validator). Computes
+        6. Export computation + validation (Validator). Computes
            `original_exports` as the union of auto-detected non-underscore
            non-IMPORT symbols and explicit __all__ entries. Constructs a
-           Validator and returns a validated ModularizationResult.
+           Validator and returns a validated ModularizationResult with
+           imodent warnings merged in.
 
         Note: `module_level_code` is extracted from the AST and passed
         through to generator.generate() but is never consumed there
@@ -149,6 +161,24 @@ class Moedularizer:
         symbols, dependencies, dunder_all, external_imports, module_level_code = analyzer.analyze(
             source, filename=str(self.config.source_file) if self.config.source_file else '<string>'
         )
+
+        imodent_report: Optional[ImodentReport] = None
+        if self.config.use_imodent:
+            try:
+                bridge = ImodentBridge()
+                project_paths = (
+                    [Path(p) for p in self.config.imodent_project_paths]
+                    if self.config.imodent_project_paths
+                    else [self.config.source_file.parent]
+                    if self.config.source_file
+                    else [Path.cwd()]
+                )
+                imodent_report = bridge.analyze_project(
+                    project_paths,
+                    check_lint=self.config.imodent_check_lint,
+                )
+            except Exception as e:
+                imodent_report = None
 
         clusterer = Clusterer(self.config)
         clusters = clusterer.cluster(symbols, dependencies)
@@ -175,13 +205,19 @@ class Moedularizer:
             dunder_all=dunder_all,
             module_level_code=module_level_code,
             graph=graph,
+            imodent_report=imodent_report,
         )
 
         original_exports = {s.name for s in symbols if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT}
         if self.config.respect_dunder_all and dunder_all is not None:
             original_exports = set(dunder_all) | original_exports
         validator = Validator(original_exports)
-        return validator.validate(modules, clusters, graph)
+        result = validator.validate(modules, clusters, graph)
+
+        if imodent_report is not None and imodent_report.warnings:
+            result.warnings.extend(imodent_report.warnings)
+
+        return result
 
     def write(self, result: ModularizationResult) -> List[Path]:
         """Renders generated Module objects to source files and writes them to

@@ -59,6 +59,13 @@ class MoedularizerConfig:
     backup_existing: bool = True            # backup files before overwriting
     dry_run: bool = False                   # don't write files
 
+    # imodent integration
+    use_imodent: bool = False               # enable imodent-powered import analysis
+    imodent_project_paths: List[str] = field(default_factory=list)
+    # directories to scan for cross-file import context (defaults to [source_file.parent])
+    imodent_check_lint: bool = False        # enable Ruff-backed lint checks (slower)
+    imodent_strict_imports: bool = True     # remove imports imodent flags as unused
+
     def validate(self) -> List[str]:
         """Return list of validation errors.
 

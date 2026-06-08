@@ -24,6 +24,9 @@ from moedularizer.types import (
     SymbolKind,
 )
 
+if False:  # TYPE_CHECKING
+    from moedularizer.imodent_bridge import ImodentReport
+
 
 class CodeGenerator:
     """Generate modularized Python files from clusters."""
@@ -45,8 +48,9 @@ class CodeGenerator:
         external_imports: Dict[str, List[str]],
         source: str,
         dunder_all: Optional[List[str]] = None,
-        module_level_code: Optional[str] = None,  # Reserved: module-level imperative code placement, not yet implemented
+        module_level_code: Optional[str] = None,
         graph: Optional[DependencyGraph] = None,
+        imodent_report=None,  # ImodentReport | None
     ) -> List[Module]:
         """Generate modules from clusters.
 
@@ -62,12 +66,19 @@ class CodeGenerator:
             module_level_code: Imperative code extracted from module level.
             graph: DependencyGraph, used at lines 67-68 to verify import
                 targets exist via graph.all_symbols().
+            imodent_report: Optional ImodentReport from imodent_bridge;
+                when provided, unused imports are pruned from
+                external_imports before generation.
 
         Returns:
             List[Module] with guaranteed __init__ module appended as the
             final element.
         """
         modules = []
+
+        # Apply imodent import filtering if available
+        if imodent_report is not None and self.config.imodent_strict_imports:
+            external_imports = imodent_report.filter_external_imports(external_imports)
 
         # Group symbols by cluster
         for cluster in clusters:

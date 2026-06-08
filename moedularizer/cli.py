@@ -11,12 +11,14 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 from moedularizer.analyzer import Analyzer
 from moedularizer.clusterer import Clusterer
 from moedularizer.config import MoedularizerConfig
 from moedularizer.dependency import build_graph
 from moedularizer.generator import CodeGenerator
+from moedularizer.imodent_bridge import ImodentBridge, ImodentReport
 from moedularizer.types import SymbolKind
 from moedularizer.validator import Validator
 
@@ -126,6 +128,30 @@ Examples:
         action="store_true",
         help="Don't backup existing files before overwriting"
     )
+    parser.add_argument(
+        "--imodent",
+        action="store_true",
+        dest="use_imodent",
+        help="Enable imodent-powered import analysis and unused import filtering"
+    )
+    parser.add_argument(
+        "--imodent-paths",
+        nargs="*",
+        default=[],
+        help="Additional directories for imodent to scan for cross-file context"
+    )
+    parser.add_argument(
+        "--imodent-lint",
+        action="store_true",
+        dest="imodent_check_lint",
+        help="Enable Ruff-backed lint checks in imodent (slower)"
+    )
+    parser.add_argument(
+        "--no-imodent-strict",
+        action="store_false",
+        dest="imodent_strict_imports",
+        help="Report unused imports but don't remove them from generated modules"
+    )
 
     args = parser.parse_args()
 
@@ -160,6 +186,10 @@ Examples:
         force_groupings=force_groupings,
         dry_run=args.dry_run,
         backup_existing=not args.no_backup,
+        use_imodent=args.use_imodent,
+        imodent_project_paths=args.imodent_paths,
+        imodent_check_lint=args.imodent_check_lint,
+        imodent_strict_imports=args.imodent_strict_imports,
     )
 
     # Validate config
@@ -230,6 +260,24 @@ Examples:
             if name not in external_imports_dict[module_path]:
                 external_imports_dict[module_path].append(name)
 
+    # Run imodent project-wide import analysis if enabled
+    imodent_report: Optional[ImodentReport] = None
+    if config.use_imodent:
+        try:
+            bridge = ImodentBridge()
+            project_paths = (
+                [Path(p) for p in config.imodent_project_paths]
+                if config.imodent_project_paths
+                else [args.source_file.parent]
+            )
+            imodent_report = bridge.analyze_project(
+                project_paths,
+                check_lint=config.imodent_check_lint,
+            )
+        except Exception as e:
+            if args.verbose:
+                print(f"imodent analysis skipped: {e}", file=sys.stderr)
+
     # Generate
     generator = CodeGenerator(config)
     graph = build_graph(symbols, dependencies)
@@ -238,6 +286,7 @@ Examples:
         dunder_all=dunder_all,
         module_level_code=module_level_code,
         graph=graph,
+        imodent_report=imodent_report,
     )
 
     # Validate
@@ -246,6 +295,10 @@ Examples:
         original_exports = set(dunder_all) | original_exports
     validator = Validator(original_exports)
     result = validator.validate(modules, clusters, graph)
+
+    # Merge imodent warnings
+    if imodent_report is not None and imodent_report.warnings:
+        result.warnings.extend(imodent_report.warnings)
 
     # Report
     if result.warnings:
