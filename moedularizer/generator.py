@@ -1,9 +1,9 @@
 """Converts Cluster groupings into Module objects with cross-module
 import resolution, renders them to Python source strings, and
 writes to disk. CodeGenerator is the sole class: generate() builds
-Module objects from clusters (8 params, produces List[Module] with
-guaranteed __init__); render_module() assembles source strings from
-docstring + imports + symbol bodies + __all__; three private
+Module objects from clusters (6 required params + 3 optional), produces
+List[Module] with guaranteed __init__); render_module() assembles source
+strings from docstring + imports + symbol bodies + __all__; three private
 helpers handle docstring templating (_generate_docstring), import
 classification via hardcoded stdlib set (_add_imports), and
 import filtering via regex with string-literal stripping
@@ -24,7 +24,9 @@ from moedularizer.types import (
     SymbolKind,
 )
 
-if False:  # TYPE_CHECKING
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from moedularizer.imodent_bridge import ImodentReport
 
 
@@ -48,7 +50,6 @@ class CodeGenerator:
         external_imports: Dict[str, List[str]],
         source: str,
         dunder_all: Optional[List[str]] = None,
-        module_level_code: Optional[str] = None,
         graph: Optional[DependencyGraph] = None,
         imodent_report=None,  # ImodentReport | None
     ) -> List[Module]:
@@ -63,7 +64,6 @@ class CodeGenerator:
             source: Original source text (for filtering imports).
             dunder_all: Explicit __all__ from the original source file,
                 takes precedence over auto-detected exports.
-            module_level_code: Imperative code extracted from module level.
             graph: DependencyGraph, used at lines 67-68 to verify import
                 targets exist via graph.all_symbols().
             imodent_report: Optional ImodentReport from imodent_bridge;

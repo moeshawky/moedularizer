@@ -220,7 +220,7 @@ def test_dependency_graph_invariant():
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
     ]
 
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     # Invariant: Graph contains all symbols
     graph_symbols = graph.all_symbols()
@@ -301,7 +301,7 @@ def test_validator_invariant():
 
     validator = Validator(set())
 
-    result = validator.validate([], [], build_graph([], []))
+    result = validator.validate([], [], build_graph([]))
 
     # Invariant: Result is valid
     assert isinstance(result, ModularizationResult)
@@ -345,7 +345,7 @@ def test_symbol_ordering_invariant():
         Dependency(source="bar", target="baz", dep_type=DependencyType.CALLS),
     ]
 
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     # Invariant: Topological sort respects dependencies
     ordered = graph.topological_sort()

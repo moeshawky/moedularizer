@@ -17,7 +17,9 @@ from typing import List, Optional, Set, Tuple
 
 from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-if False:  # TYPE_CHECKING forward reference
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from moedularizer.imodent_bridge import ImodentReport
 
 

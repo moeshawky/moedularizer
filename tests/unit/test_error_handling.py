@@ -191,7 +191,7 @@ def test_validator_with_empty_modules():
 
     from moedularizer.types import Cluster, ModularizationResult
 
-    result = validator.validate([], [], build_graph([], []))
+    result = validator.validate([], [], build_graph([]))
 
     # Should handle gracefully
     assert result is not None
@@ -218,7 +218,7 @@ def test_validator_with_circular_imports():
     cluster_b = Cluster(name="module_b", symbols={"bar"})
     clusters = [cluster_a, cluster_b]
 
-    result = validator.validate(modules, clusters, build_graph([], []))
+    result = validator.validate(modules, clusters, build_graph([]))
 
     # Should detect circular imports
     # Note: The validator may or may not detect this depending on implementation
@@ -229,7 +229,7 @@ def test_validator_with_circular_imports():
 
 def test_dependency_graph_with_empty_nodes():
     """G-ERR: Test dependency graph with no nodes."""
-    graph = build_graph([], [])
+    graph = build_graph([])
 
     # Should handle gracefully
     assert graph is not None
@@ -243,7 +243,7 @@ def test_dependency_graph_with_self_loop():
     symbols = [Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2)]
     dependencies = [Dependency(source="foo", target="foo", dep_type=DependencyType.CALLS)]
 
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     # Should handle self-loop
     assert graph is not None
@@ -262,7 +262,7 @@ def test_topological_sort_with_cycles():
         Dependency(source="bar", target="foo", dep_type=DependencyType.CALLS),
     ]
 
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     # Should detect cycles
     cycles = graph.find_cycles()

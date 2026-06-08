@@ -280,18 +280,17 @@ Examples:
 
     # Generate
     generator = CodeGenerator(config)
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
     modules = generator.generate(
         clusters, symbol_map, cluster_map, external_imports_dict, source,
         dunder_all=dunder_all,
-        module_level_code=module_level_code,
         graph=graph,
         imodent_report=imodent_report,
     )
 
     # Validate
     original_exports = {s.name for s in symbols if not s.name.startswith('_') and s.kind != SymbolKind.IMPORT}
-    if dunder_all:
+    if config.respect_dunder_all and dunder_all is not None:
         original_exports = set(dunder_all) | original_exports
     validator = Validator(original_exports)
     result = validator.validate(modules, clusters, graph)

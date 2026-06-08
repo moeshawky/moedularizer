@@ -141,21 +141,19 @@ class Moedularizer:
            (merging duplicate module_path entries).
 
         5. Code generation (CodeGenerator). Builds a DependencyGraph via
-           build_graph(), then calls generate() with 9 parameters (8
-           original + optional imodent_report) to produce List[Module]
-           with cross-module imports resolved and unused imports pruned.
+           build_graph(), then calls generate() with 7 parameters + optional
+           imodent_report to produce List[Module] with cross-module imports
+           resolved and unused imports pruned.
 
         6. Export computation + validation (Validator). Computes
            `original_exports` as the union of auto-detected non-underscore
-           non-IMPORT symbols and explicit __all__ entries. Constructs a
-           Validator and returns a validated ModularizationResult with
-           imodent warnings merged in.
+           non-IMPORT symbols and explicit __all__ entries, gated by
+           config.respect_dunder_all. Constructs a Validator and returns
+           a validated ModularizationResult with imodent warnings merged in.
 
-        Note: `module_level_code` is extracted from the AST and passed
-        through to generator.generate() but is never consumed there
-        (see _bugs/__init__.py.yaml). `respect_dunder_all` config flag
-        (config.py:39) is defined but never consulted — dunder_all is
-        always respected unconditionally (see _bugs/).
+        Note: `module_level_code` is extracted from the AST (line 161)
+        but no longer passed to generator.generate() — it was never
+        consumed there (removed per RC #5).
         """
         analyzer = Analyzer()
         symbols, dependencies, dunder_all, external_imports, module_level_code = analyzer.analyze(
@@ -199,11 +197,10 @@ class Moedularizer:
                     external_imports_dict[module_path].append(name)
 
         generator = CodeGenerator(self.config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
             imodent_report=imodent_report,
         )

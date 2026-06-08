@@ -102,7 +102,7 @@ def bar():
         clusters = clusterer.cluster(symbols, dependencies)
 
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -121,7 +121,6 @@ def bar():
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 

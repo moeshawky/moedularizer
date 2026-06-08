@@ -72,7 +72,7 @@ class Clusterer:
                      if d.source in {s.name for s in code_symbols}
                      and d.target in {s.name for s in code_symbols}]
 
-        graph = build_graph(code_symbols, code_deps)
+        graph = build_graph(code_deps)
         symbol_map = {s.name: s for s in code_symbols}
 
         # Step 1: Apply forced groupings

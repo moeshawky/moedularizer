@@ -136,7 +136,19 @@ class ImodentBridge:
         return self._build_report(result)
 
     def _build_report(self, result) -> ImodentReport:
-        """Extract moedularizer-relevant data from an AnalysisResult."""
+        """Extract moedularizer-relevant data from an AnalysisResult.
+
+        Iterates over findings to populate unused_imports and import_usage.
+        Extracts circular-import findings as warnings. Attempts cross-file
+        dependency graph extraction from result.context.graph._imports;
+        logs a warning to ``self.warnings`` on failure (catches
+        AttributeError and TypeError only, not bare Exception).
+
+        Returns:
+            ImodentReport with populated unused_imports, import_usage,
+            cross_file_deps (may be empty on extraction failure), and
+            warnings.
+        """
         unused: Set[Tuple[str, Optional[str]]] = set()
         import_usage: Dict[Path, List[ImportUsage]] = {}
         warnings: List[str] = []
@@ -180,8 +192,10 @@ class ImodentBridge:
             if hasattr(graph, '_imports'):
                 for source, targets in graph._imports.items():
                     cross_file_deps[source] = set(targets)
-        except Exception:
-            pass
+        except (AttributeError, TypeError) as e:
+            warnings.append(
+                f"Failed to extract cross-file dependency graph: {e}"
+            )
 
         return ImodentReport(
             unused_imports=unused,

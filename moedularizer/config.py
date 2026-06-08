@@ -69,15 +69,44 @@ class MoedularizerConfig:
     def validate(self) -> List[str]:
         """Return list of validation errors.
 
-        Gaps not checked here: output_dir writability (runtime concern),
-        max_symbols_per_module <= 0, force_groupings vs force_separations
-        conflicts.
+        Checks: source_file existence (when set), max/min symbol ordering,
+        package_name valid Python identifier, max_symbols_per_module > 0,
+        force_groupings/force_separations symbol conflicts and symbol name
+        validity.
+
+        Not checked: output_dir writability — deferred to write_modules()
+        at runtime since the directory may not exist during config
+        construction.
         """
         errors: List[str] = []
         if self.source_file and not self.source_file.exists():
             errors.append(f"Source file not found: {self.source_file}")
         if self.max_symbols_per_module < self.min_symbols_per_module:
             errors.append("max_symbols_per_module < min_symbols_per_module")
+        if self.max_symbols_per_module <= 0:
+            errors.append(
+                f"max_symbols_per_module must be > 0, got {self.max_symbols_per_module}"
+            )
         if not self.package_name.isidentifier():
             errors.append(f"Invalid package name: {self.package_name!r}")
+
+        # Validate force_groupings symbol names (catch typos at config time)
+        for group_name, symbols in self.force_groupings.items():
+            for sym_name in symbols:
+                if not sym_name or not sym_name.isidentifier():
+                    errors.append(
+                        f"Invalid symbol name '{sym_name}' in "
+                        f"force_groupings['{group_name}']"
+                    )
+
+        # Detect force_groupings vs force_separations conflicts
+        for group_name, symbols in self.force_groupings.items():
+            for sep_set in self.force_separations:
+                overlap = set(symbols) & sep_set
+                if overlap:
+                    errors.append(
+                        f"Symbol(s) {sorted(overlap)} appear in both "
+                        f"force_groupings['{group_name}'] and force_separations"
+                    )
+
         return errors

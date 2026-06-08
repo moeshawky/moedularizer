@@ -62,7 +62,7 @@ CONSTANT = "hello"
 
         # Generate
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -81,7 +81,6 @@ CONSTANT = "hello"
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 
@@ -241,7 +240,7 @@ def test_backup_existing_files():
         clusters = clusterer.cluster(symbols, dependencies)
 
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -260,7 +259,6 @@ def test_backup_existing_files():
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 
@@ -302,7 +300,7 @@ def test_dry_run_does_not_modify_files():
         clusters = clusterer.cluster(symbols, dependencies)
 
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -321,7 +319,6 @@ def test_dry_run_does_not_modify_files():
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 
@@ -366,7 +363,7 @@ def bar():
         clusters = clusterer.cluster(symbols, dependencies)
 
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -385,7 +382,6 @@ def bar():
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 
@@ -436,7 +432,7 @@ def baz():
         clusters = clusterer.cluster(symbols, dependencies)
 
         generator = CodeGenerator(config)
-        graph = build_graph(symbols, dependencies)
+        graph = build_graph(dependencies)
 
         symbol_map = {s.name: s for s in symbols}
         cluster_map = {}
@@ -455,7 +451,6 @@ def baz():
         modules = generator.generate(
             clusters, symbol_map, cluster_map, external_imports_dict, source,
             dunder_all=dunder_all,
-            module_level_code=module_level_code,
             graph=graph,
         )
 
@@ -494,7 +489,7 @@ def test_generator_cross_module_imports():
     deps = [
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
     ]
-    graph = build_graph(symbols, deps)
+    graph = build_graph(deps)
 
     source = "def foo():\n    return bar()\n\ndef bar():\n    return 42\n"
     modules = generator.generate(

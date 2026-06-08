@@ -198,11 +198,14 @@ class DependencyGraph:
             return list(symbols)
 
 
-def build_graph(symbols: List[Symbol], dependencies: List[Dependency]) -> DependencyGraph:
-    """Build a dependency graph from extracted symbols and dependencies.
+def build_graph(dependencies: List[Dependency]) -> DependencyGraph:
+    """Build a dependency graph from extracted dependencies.
 
-    The `symbols` parameter is currently unused — only `dependencies`
-    populate the graph. Reserved for future validation of symbol coverage.
+    Populates the graph from ``dependencies`` only. Returns a
+    DependencyGraph instance with all edges registered.
+
+    Returns:
+        DependencyGraph: Graph with all dependency edges populated.
     """
     graph = DependencyGraph()
     for dep in dependencies:

@@ -70,17 +70,17 @@ class Validator:
         modules: List[Module],
         result: ModularizationResult,
     ) -> bool:
-        """
-        Check for circular imports between modules.
-        Returns True if cycles found.
+        """Check for circular imports between modules using iterative DFS.
 
-        Format dependency: parses import lines matching 'from X import Y'
-        format only (line 82). Non-init module imports_needed entries use
-        raw symbol names without 'from'/'import' keywords and are silently
-        skipped. This means circular dependencies between non-init modules
-        are never detected — only init module imports are checked, which
-        form a star topology (init imports from each non-init module) and
-        rarely contain circuits.
+        Builds a module dependency graph from init module import
+        statements (``from X import Y`` format only). Cycles are
+        detected via iterative DFS with per-traversal ``path_index``
+        dict — each DFS call maintains its own path tracking, preventing
+        false-positive cycles from state bleed between independent
+        traversals (RC #4 fix).
+
+        Returns True if any cycles are found, False otherwise.
+        Warnings for detected cycles are appended to ``result.warnings``.
         """
         # Build module dependency graph from import statements
         module_deps: Dict[str, Set[str]] = {}
@@ -102,32 +102,29 @@ class Validator:
                             f"Could not parse import: {imp}"
                         )
 
-        # Check for cycles using iterative DFS
-        visited = set()
-        rec_stack = set()
+        # Check for cycles using iterative DFS with per-traversal path tracking.
+        # Each DFS traversal maintains its own path_index dict, preventing
+        # false-positive cycles from state bleed between independent traversals.
+        visited: Set[str] = set()
         has_cycles = False
 
         def dfs_iterative(start: str) -> bool:
-            # Known limitation: rec_stack is a set shared across all DFS
-            # paths, not per-path. A node in rec_stack from one path can
-            # trigger a false positive cycle if reached by a different
-            # path. path.index(node) at line 112 may ValueError if node
-            # is in rec_stack but not in the current path.
-            stack = [(start, False)]
-            path = []
+            stack: List[Tuple[str, bool]] = [(start, False)]
+            path: List[str] = []
+            path_index: Dict[str, int] = {}
             found_cycle = False
 
             while stack:
                 node, processed = stack.pop()
                 if processed:
-                    rec_stack.discard(node)
+                    path_index.pop(node, None)
                     if path and path[-1] == node:
                         path.pop()
                     continue
 
-                if node in rec_stack:
-                    # Found a cycle
-                    cycle_start = path.index(node) if node in path else 0
+                if node in path_index:
+                    # Found a cycle — path_index maps node to its position
+                    cycle_start = path_index[node]
                     cycle = path[cycle_start:] + [node]
                     result.warnings.append(
                         f"Circular import: {' -> '.join(cycle)}"
@@ -139,12 +136,12 @@ class Validator:
                     continue
 
                 visited.add(node)
-                rec_stack.add(node)
+                path_index[node] = len(path)
                 path.append(node)
                 stack.append((node, True))
 
                 for dep in sorted(module_deps.get(node, set())):
-                    if dep not in visited or dep in rec_stack:
+                    if dep not in visited or dep in path_index:
                         stack.append((dep, False))
 
             return found_cycle

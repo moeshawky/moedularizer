@@ -242,7 +242,7 @@ class Baz:
     clusters = clusterer.cluster(symbols, dependencies)
 
     generator = CodeGenerator(config)
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     symbol_map = {s.name: s for s in symbols}
     cluster_map = {}
@@ -261,7 +261,6 @@ class Baz:
     modules = generator.generate(
         clusters, symbol_map, cluster_map, external_imports_dict, source,
         dunder_all=dunder_all,
-        module_level_code=module_level_code,
         graph=graph,
     )
 
@@ -311,7 +310,7 @@ def test_golden_dependency_graph():
         Dependency(source="foo", target="bar", dep_type=DependencyType.CALLS),
     ]
 
-    graph = build_graph(symbols, dependencies)
+    graph = build_graph(dependencies)
 
     # Get golden output
     golden = load_golden_file("dependency_graph.txt")
