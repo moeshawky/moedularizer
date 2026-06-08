@@ -8,10 +8,30 @@ vector:
   dimension: 1024
 
 embedding:
-  url: "https://medjat.libermoe.com/embed"
+  url: "http://localhost:28080"
   token: ""
-  model: "qwen3-embedding-0.6b-q8_0"
+  model: "qwen3-embedding-0.6b-q8_0.gguf"
   dim: 1024
+  boosters:
+    - type: llamacpp
+      url: "http://tunnel.prankh.libermoe.com:26420"
+      model: "qwen3-embed"
+      max_concurrency: 350
+
+providers:
+  - name: deepseek
+    url: "https://api.deepseek.com/v1/chat/completions"
+    models: ["deepseek-v4-flash"]
+    keys_env: "DEEPSEEK_V4_API_KEY"
+    workers: 1000
+    extra_body:
+      thinking:
+        type: disabled
+  - name: mistral
+    url: "https://api.mistral.ai/v1/chat/completions"
+    models: ["mistral-large-latest"]
+    keys_env: "MISTRAL_API_KEYS"
+    workers: 2
 
 llm:
   mistral:
