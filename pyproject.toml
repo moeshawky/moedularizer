@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "moedularizer"
-version = "0.1.0"
+version = "0.1.1"
 description = "Automatically modularize monolithic Python files into packages"
 readme = "README.md"
 license = {text = "MIT"}

@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-12
+
 ### Added
 - Cross-platform CI matrix: macOS (arm64), Windows, and Linux with Python 3.9–3.13
+
+### Fixed
+- Purge agentic development artifacts from git tracking (`.codegraph/`, `.codegraphinclude`)
+- CHANGELOG entries correctly assigned to release version
 
 ## [0.1.0] - 2026-06-12
 
