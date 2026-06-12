@@ -10,11 +10,48 @@ permissions:
   contents: read
 
 jobs:
+  # ── Fast quality gate — lint, format, type check (Linux only, one Python) ──
   quality:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy strict)
+        run: uv run mypy src/
+
+  # ── Cross-platform test matrix (3 OS × 5 Python versions) ──
+  test:
+    needs: quality
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        exclude:
+          # Reduce matrix: skip oldest Pythons on non-Linux
+          - os: macos-latest
+            python-version: "3.9"
+          - os: windows-latest
+            python-version: "3.9"
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,15 +66,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
-
-      - name: Lint (ruff check)
-        run: uv run ruff check .
-
-      - name: Format (ruff format)
-        run: uv run ruff format --check .
-
-      - name: Type check (mypy strict)
-        run: uv run mypy src/
 
       - name: Test (pytest + coverage)
         run: uv run pytest --cov --cov-report=xml
