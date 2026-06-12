@@ -434,7 +434,11 @@ SYMBOL_KIND_CASES = [
         SymbolKind.FUNCTION,
         "def foo in mixed file",
     ),
-    ("def foo():\n    pass\n\nclass Bar:\n    pass\n", SymbolKind.CLASS, "class Bar in mixed file"),
+    (
+        "def foo():\n    pass\n\nclass Bar:\n    pass\n",
+        SymbolKind.CLASS,
+        "class Bar in mixed file",
+    ),
 ]
 
 

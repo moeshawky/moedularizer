@@ -41,4 +41,12 @@ dist/
 
 # AI annotation proposals (RNA layer — reviewed before applying as DNA)
 .annotations/
+
+# Agentic dev artifacts — never publish these
+AGENTS.md
+references/
+.cursor/
+.claude/
+.agents/
+
 .coverage

@@ -1,5 +1,9 @@
 # Moedularizer
 
+[![PyPI version](https://badge.fury.io/py/moedularizer.svg)](https://pypi.org/project/moedularizer/)
+[![CI](https://github.com/moeshawky/moedularizer/actions/workflows/ci.yml/badge.svg)](https://github.com/moeshawky/moedularizer/actions)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Automatically modularize monolithic Python files into packages.
 
 Given a single Python file, moedularizer analyzes symbol dependencies, clusters related code, and generates a proper package structure with cross-module imports and a re-exporting `__init__.py`.

@@ -7,7 +7,6 @@ detecting cycles, performing topological sorts, and extracting subgraphs.
 """
 
 from collections import defaultdict, deque
-from typing import Dict, List, Set, Tuple
 
 from moedularizer.types import Dependency, DependencyType
 
@@ -25,9 +24,9 @@ class DependencyGraph:
         _reverse (reverse adjacency for O(1) depended_by queries).
         `max_depth` caps cycle-detection path length; defaults to 500
         to prevent unbounded recursion on dense graphs."""
-        self._edges: Dict[str, Set[str]] = defaultdict(set)
-        self._edge_types: Dict[Tuple[str, str], DependencyType] = {}
-        self._reverse: Dict[str, Set[str]] = defaultdict(set)
+        self._edges: dict[str, set[str]] = defaultdict(set)
+        self._edge_types: dict[tuple[str, str], DependencyType] = {}
+        self._reverse: dict[str, set[str]] = defaultdict(set)
         self.max_depth = max_depth
 
     def add_dependency(self, dep: Dependency) -> None:
@@ -40,11 +39,11 @@ class DependencyGraph:
         self._edge_types[(dep.source, dep.target)] = dep.dep_type
         self._reverse[dep.target].add(dep.source)
 
-    def depends_on(self, symbol: str) -> Set[str]:
+    def depends_on(self, symbol: str) -> set[str]:
         """What does this symbol depend on?"""
         return self._edges.get(symbol, set()).copy()
 
-    def depended_by(self, symbol: str) -> Set[str]:
+    def depended_by(self, symbol: str) -> set[str]:
         """What depends on this symbol?"""
         return self._reverse.get(symbol, set()).copy()
 
@@ -55,7 +54,7 @@ class DependencyGraph:
         (defaultdict supplies empty set for missing keys)."""
         return target in self._edges.get(source, set())
 
-    def all_symbols(self) -> Set[str]:
+    def all_symbols(self) -> set[str]:
         """Collects the union of all source nodes and all target nodes from
         the forward adjacency dict. Returns Set[str] covering every symbol
         that either depends on something or is depended upon. Symbols that
@@ -68,7 +67,7 @@ class DependencyGraph:
             nodes.update(self._edges[s])
         return nodes
 
-    def find_cycles(self) -> List[List[str]]:
+    def find_cycles(self) -> list[list[str]]:
         """Find all cycles in the dependency graph using iterative DFS.
 
         Each DFS traversal maintains its own path and path-set, preventing
@@ -76,13 +75,13 @@ class DependencyGraph:
         Depth-limit hits terminate the current traversal cleanly rather than
         leaving the outer loop with inconsistent state.
         """
-        cycles: List[List[str]] = []
-        visited: Set[str] = set()
+        cycles: list[list[str]] = []
+        visited: set[str] = set()
 
         def dfs_iterative(start: str) -> None:
-            stack: List[Tuple[str, bool]] = [(start, False)]
-            path: List[str] = []
-            path_index: Dict[str, int] = {}
+            stack: list[tuple[str, bool]] = [(start, False)]
+            path: list[str] = []
+            path_index: dict[str, int] = {}
 
             while stack:
                 node, processed = stack.pop()
@@ -124,14 +123,14 @@ class DependencyGraph:
 
         return cycles
 
-    def topological_sort(self) -> List[str]:
+    def topological_sort(self) -> list[str]:
         """
         Topological sort of symbols using Kahn's algorithm.
         Raises ValueError if cycles exist.
 
         Uses collections.deque for O(1) popleft instead of O(n) list.pop(0).
         """
-        in_degree: Dict[str, int] = defaultdict(int)
+        in_degree: dict[str, int] = defaultdict(int)
         all_nodes = self.all_symbols()
 
         for node in all_nodes:
@@ -142,7 +141,7 @@ class DependencyGraph:
                 in_degree[target] += 1
 
         queue = deque([s for s in all_nodes if in_degree[s] == 0])
-        result: List[str] = []
+        result: list[str] = []
 
         while queue:
             node = queue.popleft()
@@ -160,7 +159,7 @@ class DependencyGraph:
 
         return result
 
-    def subgraph(self, symbols: Set[str]) -> "DependencyGraph":
+    def subgraph(self, symbols: set[str]) -> "DependencyGraph":
         """Extract subgraph containing only specified symbols."""
         sub = DependencyGraph(max_depth=self.max_depth)
         for source in symbols:
@@ -176,7 +175,7 @@ class DependencyGraph:
                     )
         return sub
 
-    def symbol_order(self, symbols: List[str]) -> List[str]:
+    def symbol_order(self, symbols: list[str]) -> list[str]:
         """
         Return symbols in dependency order (dependencies first).
         Falls back to original order if cycles prevent topological sort.
@@ -201,7 +200,7 @@ class DependencyGraph:
             return list(symbols)
 
 
-def build_graph(dependencies: List[Dependency]) -> DependencyGraph:
+def build_graph(dependencies: list[Dependency]) -> DependencyGraph:
     """Build a dependency graph from extracted dependencies.
 
     Populates the graph from ``dependencies`` only. Returns a

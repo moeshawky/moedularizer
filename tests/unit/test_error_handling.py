@@ -239,7 +239,15 @@ def test_dependency_graph_with_self_loop():
     """G-ERR: Test dependency graph with self-loop."""
     from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
-    [Symbol(name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2)]
+    [
+        Symbol(
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo(): pass",
+            lineno=1,
+            end_lineno=2,
+        )
+    ]
     dependencies = [Dependency(source="foo", target="foo", dep_type=DependencyType.CALLS)]
 
     graph = build_graph(dependencies)
@@ -254,10 +262,18 @@ def test_topological_sort_with_cycles():
 
     [
         Symbol(
-            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo(): pass",
+            lineno=1,
+            end_lineno=2,
         ),
         Symbol(
-            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+            name="bar",
+            kind=SymbolKind.FUNCTION,
+            source="def bar(): pass",
+            lineno=3,
+            end_lineno=4,
         ),
     ]
     dependencies = [

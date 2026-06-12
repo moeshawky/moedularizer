@@ -221,10 +221,18 @@ def test_dependency_graph_invariant():
 
     [
         Symbol(
-            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo(): pass",
+            lineno=1,
+            end_lineno=2,
         ),
         Symbol(
-            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+            name="bar",
+            kind=SymbolKind.FUNCTION,
+            source="def bar(): pass",
+            lineno=3,
+            end_lineno=4,
         ),
     ]
     dependencies = [
@@ -348,13 +356,25 @@ def test_symbol_ordering_invariant():
 
     [
         Symbol(
-            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo(): pass",
+            lineno=1,
+            end_lineno=2,
         ),
         Symbol(
-            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+            name="bar",
+            kind=SymbolKind.FUNCTION,
+            source="def bar(): pass",
+            lineno=3,
+            end_lineno=4,
         ),
         Symbol(
-            name="baz", kind=SymbolKind.FUNCTION, source="def baz(): pass", lineno=5, end_lineno=6
+            name="baz",
+            kind=SymbolKind.FUNCTION,
+            source="def baz(): pass",
+            lineno=5,
+            end_lineno=6,
         ),
     ]
     dependencies = [
@@ -529,7 +549,9 @@ correct Symbol name and Function kind are extracted."""
 @given(
     names=st.lists(
         st.text(
-            alphabet=st.characters(min_codepoint=97, max_codepoint=122), min_size=1, max_size=8
+            alphabet=st.characters(min_codepoint=97, max_codepoint=122),
+            min_size=1,
+            max_size=8,
         ),
         min_size=2,
         max_size=8,

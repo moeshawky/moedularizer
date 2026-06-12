@@ -212,7 +212,10 @@ def test_golden_init_generation():
     from moedularizer.types import Module
 
     init = Module(name="__init__", is_init=True)
-    init.imports_needed = ["from test_package.foo import foo", "from test_package.bar import bar"]
+    init.imports_needed = [
+        "from test_package.foo import foo",
+        "from test_package.bar import bar",
+    ]
     init.all_exports = ["foo", "bar"]
 
     rendered = generator.render_module(init)
@@ -325,10 +328,18 @@ def test_golden_dependency_graph():
 
     [
         Symbol(
-            name="foo", kind=SymbolKind.FUNCTION, source="def foo(): pass", lineno=1, end_lineno=2
+            name="foo",
+            kind=SymbolKind.FUNCTION,
+            source="def foo(): pass",
+            lineno=1,
+            end_lineno=2,
         ),
         Symbol(
-            name="bar", kind=SymbolKind.FUNCTION, source="def bar(): pass", lineno=3, end_lineno=4
+            name="bar",
+            kind=SymbolKind.FUNCTION,
+            source="def bar(): pass",
+            lineno=3,
+            end_lineno=4,
         ),
     ]
     dependencies = [

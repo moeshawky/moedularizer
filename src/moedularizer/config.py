@@ -9,9 +9,13 @@ Imports only stdlib (dataclasses, pathlib, typing) — no internal
 moedularizer dependencies.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -28,8 +32,8 @@ class MoedularizerConfig:
     """
 
     # Input
-    source_file: Optional[Path] = None  # monolithic file to split (optional for programmatic use)
-    output_dir: Optional[Path] = None  # directory for generated modules (optional for dry-run)
+    source_file: Path | None = None  # monolithic file to split (optional for programmatic use)
+    output_dir: Path | None = None  # directory for generated modules (optional for dry-run)
     package_name: str = "modularized"  # package name for imports
 
     # Clustering
@@ -41,10 +45,10 @@ class MoedularizerConfig:
     separate_module_level_code: bool = True  # put module-level code in __init__
 
     # Heuristics
-    force_groupings: Dict[str, List[str]] = field(default_factory=dict)
+    force_groupings: dict[str, list[str]] = field(default_factory=dict)
     # e.g. {"key_handling": ["KeyPattern", "DetectedKey", "KeyRegistry"]}
 
-    force_separations: List[Set[str]] = field(default_factory=list)
+    force_separations: list[set[str]] = field(default_factory=list)
     # e.g. [{"canonicalize", "ModelCatalog"}] — these MUST be in different modules
 
     # Style
@@ -61,12 +65,12 @@ class MoedularizerConfig:
 
     # imodent integration
     use_imodent: bool = False  # enable imodent-powered import analysis
-    imodent_project_paths: List[str] = field(default_factory=list)
+    imodent_project_paths: list[str] = field(default_factory=list)
     # directories to scan for cross-file import context (defaults to [source_file.parent])
     imodent_check_lint: bool = False  # enable Ruff-backed lint checks (slower)
     imodent_strict_imports: bool = True  # remove imports imodent flags as unused
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Return list of validation errors.
 
         Checks: source_file existence (when set), max/min symbol ordering,
@@ -78,7 +82,7 @@ class MoedularizerConfig:
         at runtime since the directory may not exist during config
         construction.
         """
-        errors: List[str] = []
+        errors: list[str] = []
         if self.source_file and not self.source_file.exists():
             errors.append(f"Source file not found: {self.source_file}")
         if self.max_symbols_per_module < self.min_symbols_per_module:

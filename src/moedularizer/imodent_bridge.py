@@ -12,11 +12,14 @@ alongside the monolith, cross-referencing import findings against the
 generated module structure.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from imodent import AnalysisConfig, AnalysisCoordinator
 
 # Conditional import — imodent is an optional dependency.
@@ -37,7 +40,7 @@ class ImportUsage:
     """Per-import usage report from imodent analysis."""
 
     module: str
-    name: Optional[str]
+    name: str | None
     used: bool
     usage_count: int
     line: int
@@ -58,23 +61,23 @@ class ImodentReport:
     warnings: human-readable warning strings about import hygiene issues.
     """
 
-    unused_imports: Set[Tuple[str, Optional[str]]] = field(default_factory=set)
-    import_usage: Dict[Path, List[ImportUsage]] = field(default_factory=dict)
-    cross_file_deps: Dict[str, Set[str]] = field(default_factory=dict)
-    warnings: List[str] = field(default_factory=list)
+    unused_imports: set[tuple[str, str | None]] = field(default_factory=set)
+    import_usage: dict[Path, list[ImportUsage]] = field(default_factory=dict)
+    cross_file_deps: dict[str, set[str]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def has_issues(self) -> bool:
         return len(self.unused_imports) > 0 or len(self.warnings) > 0
 
-    def is_import_used(self, module: str, name: Optional[str] = None) -> bool:
+    def is_import_used(self, module: str, name: str | None = None) -> bool:
         return (module, name) not in self.unused_imports
 
     def filter_external_imports(
         self,
-        external_imports: Dict[str, List[str]],
-        file_path: Optional[Path] = None,
-    ) -> Dict[str, List[str]]:
+        external_imports: dict[str, list[str]],
+        file_path: Path | None = None,
+    ) -> dict[str, list[str]]:
         """Remove unused imports from an external_imports dict.
 
         When file_path is provided, cross-references against per-file
@@ -86,13 +89,16 @@ class ImodentReport:
         if not self.unused_imports:
             return external_imports
 
-        filtered: Dict[str, List[str]] = {}
+        filtered: dict[str, list[str]] = {}
         for module_path, names in external_imports.items():
             kept = []
             for name in names:
                 # imodent uses None for bare imports; moedularizer uses module name
                 unused = (module_path, name) in self.unused_imports
-                unused_bare = (module_path, None) in self.unused_imports and name == module_path
+                unused_bare = (
+                    module_path,
+                    None,
+                ) in self.unused_imports and name == module_path
                 if not unused and not unused_bare:
                     kept.append(name)
             if kept:
@@ -120,12 +126,12 @@ class ImodentBridge:
     """
 
     def __init__(self) -> None:
-        self._coordinator: Optional[AnalysisCoordinator] = None
+        self._coordinator: AnalysisCoordinator | None = None
         self._last_result = None
 
     def analyze_project(
         self,
-        paths: List[Path],
+        paths: list[Path],
         check_lint: bool = False,
         check_syntax: bool = True,
     ) -> ImodentReport:
@@ -169,10 +175,10 @@ class ImodentBridge:
             cross_file_deps (may be empty on extraction failure), and
             warnings.
         """
-        unused: Set[Tuple[str, Optional[str]]] = set()
-        import_usage: Dict[Path, List[ImportUsage]] = {}
-        warnings: List[str] = []
-        cross_file_deps: Dict[str, Set[str]] = {}
+        unused: set[tuple[str, str | None]] = set()
+        import_usage: dict[Path, list[ImportUsage]] = {}
+        warnings: list[str] = []
+        cross_file_deps: dict[str, set[str]] = {}
 
         for finding in result.context.findings:
             if finding.type.startswith("unused_import"):
@@ -225,8 +231,8 @@ class ImodentBridge:
     @staticmethod
     def _last_source_line(
         module: str,
-        name: Optional[str],
-        import_usage: Dict[Path, List[ImportUsage]],
+        name: str | None,
+        import_usage: dict[Path, list[ImportUsage]],
     ) -> str:
         for usages in import_usage.values():
             for u in usages:
@@ -237,7 +243,7 @@ class ImodentBridge:
     def analyze_file(
         self,
         file_path: Path,
-        project_paths: Optional[List[Path]] = None,
+        project_paths: list[Path] | None = None,
     ) -> ImodentReport:
         """Analyze a single file with optional project context.
 
@@ -250,7 +256,7 @@ class ImodentBridge:
             paths.extend(project_paths)
         return self.analyze_project(paths)
 
-    def get_unused_for_file(self, file_path: Path) -> List[ImportUsage]:
+    def get_unused_for_file(self, file_path: Path) -> list[ImportUsage]:
         """Return unused import entries for a specific file."""
         if self._last_result is None:
             return []

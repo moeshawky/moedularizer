@@ -10,8 +10,6 @@ Runs multiple validation passes:
 5. Naming convention check (valid Python identifiers)
 """
 
-from typing import Dict, List, Set, Tuple
-
 from moedularizer.dependency import DependencyGraph
 from moedularizer.types import Cluster, ModularizationResult, Module, SymbolKind
 
@@ -19,22 +17,29 @@ from moedularizer.types import Cluster, ModularizationResult, Module, SymbolKind
 class Validator:
     """Validate modularization results."""
 
-    def __init__(self, original_exports: Set[str]):
-        """Store the expected public symbols for the top-level __init__.py.
+    def __init__(self, original_exports: set[str], max_symbols_per_module: int = 20):
+        """Store the expected public symbols for the top-level __init__.py
+        and the module size warning threshold.
 
         ``original_exports`` is the set of symbols the generated init module
         should re-export after modularization. The validator later compares
         this set against the init module's actual exports in
         ``_check_api_preservation`` to flag any missing symbols.
 
+        ``max_symbols_per_module`` gates the warning threshold in
+        ``_check_module_sizes`` — modules exceeding this count trigger
+        a "consider splitting" warning. Defaults to 20 for backward
+        compatibility with callers that don't pass a config reference.
+
         The set is stored as-is — no validation or mutation on construction.
         """
         self.original_exports = original_exports
+        self.max_symbols_per_module = max_symbols_per_module
 
     def validate(
         self,
-        modules: List[Module],
-        clusters: List[Cluster],
+        modules: list[Module],
+        clusters: list[Cluster],
         graph: DependencyGraph,
     ) -> ModularizationResult:
         """Run all validation checks."""
@@ -67,7 +72,7 @@ class Validator:
 
     def _check_circular_imports(
         self,
-        modules: List[Module],
+        modules: list[Module],
         result: ModularizationResult,
     ) -> bool:
         """Check for circular imports between modules using iterative DFS.
@@ -83,7 +88,7 @@ class Validator:
         Warnings for detected cycles are appended to ``result.warnings``.
         """
         # Build module dependency graph from import statements
-        module_deps: Dict[str, Set[str]] = {}
+        module_deps: dict[str, set[str]] = {}
 
         for module in modules:
             module_deps[module.name] = set()
@@ -103,13 +108,13 @@ class Validator:
         # Check for cycles using iterative DFS with per-traversal path tracking.
         # Each DFS traversal maintains its own path_index dict, preventing
         # false-positive cycles from state bleed between independent traversals.
-        visited: Set[str] = set()
+        visited: set[str] = set()
         has_cycles = False
 
         def dfs_iterative(start: str) -> bool:
-            stack: List[Tuple[str, bool]] = [(start, False)]
-            path: List[str] = []
-            path_index: Dict[str, int] = {}
+            stack: list[tuple[str, bool]] = [(start, False)]
+            path: list[str] = []
+            path_index: dict[str, int] = {}
             found_cycle = False
 
             while stack:
@@ -150,7 +155,7 @@ class Validator:
 
     def _check_api_preservation(
         self,
-        modules: List[Module],
+        modules: list[Module],
         result: ModularizationResult,
     ) -> bool:
         """Check that all original public symbols are still accessible."""
@@ -181,7 +186,7 @@ class Validator:
 
     def _check_symbol_coverage(
         self,
-        modules: List[Module],
+        modules: list[Module],
         result: ModularizationResult,
     ) -> None:
         """Check that all symbols are assigned to exactly one module.
@@ -189,7 +194,7 @@ class Validator:
         Returns None — callers must parse result.warnings strings to
         detect duplicate coverage programmatically. No boolean flag returned.
         """
-        symbol_counts: Dict[str, int] = {}
+        symbol_counts: dict[str, int] = {}
         for module in modules:
             if module.is_init:
                 continue
@@ -212,7 +217,7 @@ class Validator:
 
     def _check_module_sizes(
         self,
-        modules: List[Module],
+        modules: list[Module],
         result: ModularizationResult,
     ) -> None:
         """Check module sizes are reasonable."""
@@ -220,18 +225,15 @@ class Validator:
             if module.is_init:
                 continue
             sym_count = len([s for s in module.symbols if s.kind != SymbolKind.IMPORT])
-            # Hardcoded threshold 20 differs from config.max_symbols_per_module
-            # (default 10). The validator warns at >20 while the clusterer caps
-            # at config.max_symbols_per_module. These serve different purposes:
-            # config is a hard clustering limit, validator is a warning.
-            if sym_count > 20:
+            # Warn when module exceeds config.max_symbols_per_module threshold.
+            if sym_count > self.max_symbols_per_module:
                 result.warnings.append(
                     f"Module '{module.name}' has {sym_count} symbols — consider splitting"
                 )
 
     def _check_naming(
         self,
-        modules: List[Module],
+        modules: list[Module],
         result: ModularizationResult,
     ) -> None:
         """Check module names are valid Python identifiers."""

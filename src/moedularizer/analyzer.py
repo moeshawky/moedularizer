@@ -10,10 +10,11 @@ Both handle Python 3.8+ AST features including end_lineno, type annotations,
 and decorators.
 """
 
+from __future__ import annotations
+
 import ast
 import re
 import textwrap
-from typing import List, Optional, Set, Tuple
 
 from moedularizer.types import Dependency, DependencyType, Symbol, SymbolKind
 
@@ -33,10 +34,10 @@ class SymbolExtractor(ast.NodeVisitor):
         self.source = source
         self.source_lines = source.splitlines()
         self.filename = filename
-        self.symbols: List[Symbol] = []
-        self.dunder_all: Optional[List[str]] = None  # extracted from source
-        self.external_imports: List[Tuple[str, List[str]]] = []  # (module_path, [names])
-        self._current_class: Optional[str] = None
+        self.symbols: list[Symbol] = []
+        self.dunder_all: list[str] | None = None  # extracted from source
+        self.external_imports: list[tuple[str, list[str]]] = []  # (module_path, [names])
+        self._current_class: str | None = None
 
     def _extract_source(self, node: ast.AST) -> str:
         """Extract source text for a node, handling missing end_lineno gracefully."""
@@ -67,11 +68,14 @@ class SymbolExtractor(ast.NodeVisitor):
                 and not stripped.startswith('"""')
             ):
                 # Check if this is a top-level definition
-                if re.match(r"^(class |def |async def |@|[A-Z_]+\s*=)", stripped):
+                if re.match(
+                    r"^(class |def |async def |@|import |from |[a-zA-Z_]\w*\s*=)",
+                    stripped,
+                ):
                     return i  # exclusive end
         return len(self.source_lines)
 
-    def _get_docstring(self, node: ast.AST) -> Optional[str]:
+    def _get_docstring(self, node: ast.AST) -> str | None:
         """Extract docstring from a node."""
         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             if (
@@ -83,14 +87,15 @@ class SymbolExtractor(ast.NodeVisitor):
                 return node.body[0].value.value
         return None
 
-    def _get_decorators(self, node: ast.AST) -> Tuple[str, ...]:
+    def _get_decorators(self, node: ast.AST) -> tuple[str, ...]:
         """Extract decorator source strings from a node.
 
-        Falls back to ast.dump() for complex decorators — broad except
-        Exception at line 80 swallows failures silently. The ast.dump output
-        is raw AST (e.g. "Name(id='dataclass', ctx=Load())"), not valid
-        Python decorator syntax, but the clusterer's substring check
-        ('dataclass' in dec) still matches.
+        Falls back to ast.dump() when _extract_source raises
+        AttributeError (missing lineno), TypeError (unexpected node
+        structure), or IndexError (end_lineno out of range). The
+        ast.dump output is raw AST (e.g. "Name(id='dataclass',
+        ctx=Load())"), not valid Python decorator syntax, but the
+        clusterer's substring check ('dataclass' in dec) still matches.
         """
         decorators = []
         if hasattr(node, "decorator_list"):
@@ -98,7 +103,7 @@ class SymbolExtractor(ast.NodeVisitor):
                 try:
                     dec_source = self._extract_source(dec)
                     decorators.append(dec_source.strip())
-                except Exception:
+                except (AttributeError, TypeError, IndexError):
                     # Fallback: use ast.dump for complex decorators
                     decorators.append(ast.dump(dec))
         return tuple(decorators)
@@ -233,7 +238,7 @@ class SymbolExtractor(ast.NodeVisitor):
             )
             self.symbols.append(sym)
 
-    def extract_module_level_code(self, tree: ast.Module) -> Optional[Symbol]:
+    def extract_module_level_code(self, tree: ast.Module) -> Symbol | None:
         """
         Extract module-level imperative code (statements that aren't
         class/function/constant definitions or imports).
@@ -242,7 +247,13 @@ class SymbolExtractor(ast.NodeVisitor):
         for node in tree.body:
             if isinstance(
                 node,
-                (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Import, ast.ImportFrom),
+                (
+                    ast.ClassDef,
+                    ast.FunctionDef,
+                    ast.AsyncFunctionDef,
+                    ast.Import,
+                    ast.ImportFrom,
+                ),
             ):
                 continue
             if isinstance(node, ast.Assign):
@@ -271,7 +282,7 @@ class SymbolExtractor(ast.NodeVisitor):
             end_lineno=last_line,
         )
 
-    def extract_dunder_all(self, tree: ast.Module) -> Optional[List[str]]:
+    def extract_dunder_all(self, tree: ast.Module) -> list[str] | None:
         """Extract __all__ definition from source, if present."""
         for node in tree.body:
             if isinstance(node, ast.Assign):
@@ -289,7 +300,7 @@ class SymbolExtractor(ast.NodeVisitor):
 class DependencyExtractor(ast.NodeVisitor):
     """Walk AST and extract dependencies between symbols."""
 
-    def __init__(self, symbol_names: Set[str]):
+    def __init__(self, symbol_names: set[str]):
         """Initialize DependencyExtractor with known symbol names.
 
         symbol_names is the membership gate: only names in this set
@@ -298,8 +309,8 @@ class DependencyExtractor(ast.NodeVisitor):
         being visited.
         """
         self.symbol_names = symbol_names
-        self.dependencies: List[Dependency] = []
-        self._current_symbol: Optional[str] = None
+        self.dependencies: list[Dependency] = []
+        self._current_symbol: str | None = None
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """Extract INHERITS and DECORATOR dependencies from class definitions.
@@ -489,12 +500,12 @@ class Analyzer:
 
     def analyze(
         self, source: str, filename: str = "<unknown>"
-    ) -> Tuple[
-        List[Symbol],
-        List[Dependency],
-        Optional[List[str]],
-        List[Tuple[str, List[str]]],
-        Optional[Symbol],
+    ) -> tuple[
+        list[Symbol],
+        list[Dependency],
+        list[str] | None,
+        list[tuple[str, list[str]]],
+        Symbol | None,
     ]:
         """
         Extract symbols and dependencies from Python source.

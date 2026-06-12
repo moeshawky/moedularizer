@@ -10,9 +10,10 @@ Defines the fundamental types used throughout the moedularizer pipeline:
 - ModularizationResult: Pipeline output with modules, clusters, and diagnostics
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Set, Tuple
 
 
 class SymbolKind(Enum):
@@ -42,8 +43,8 @@ class Symbol:
     source: str  # full source text including line breaks
     lineno: int  # start line (1-indexed)
     end_lineno: int  # end line (1-indexed, inclusive; defaults to lineno if unknown)
-    docstring: Optional[str] = None
-    decorators: Tuple[str, ...] = ()  # raw decorator source strings (not resolved names)
+    docstring: str | None = None
+    decorators: tuple[str, ...] = ()  # raw decorator source strings (not resolved names)
 
     # Hash/eq on name only — intentional for the clustering pipeline where
     # cluster.symbols is Set[str]. set(symbols) loses distinct symbols with
@@ -82,9 +83,9 @@ class Module:
     """A generated output module."""
 
     name: str  # e.g. "key_patterns"
-    symbols: List[Symbol] = field(default_factory=list)
-    dependencies: List[Dependency] = field(default_factory=list)
-    imports_needed: List[str] = field(
+    symbols: list[Symbol] = field(default_factory=list)
+    dependencies: list[Dependency] = field(default_factory=list)
+    imports_needed: list[str] = field(
         default_factory=list
     )  # Field comment: 'sorted for determinism; not insertion-ordered'. The
     # comment lives on the dataclass field declaration, but the stored value
@@ -95,14 +96,14 @@ class Module:
     # writing. The field's actual invariant is "List (for downstream sorting),
     # not Set (to allow duplicates during accumulation that are deduplicated
     # later)."
-    external_imports: List[Tuple[str, List[str]]] = field(
+    external_imports: list[tuple[str, list[str]]] = field(
         default_factory=list
     )  # (module_path, [names])
     is_init: bool = False
-    all_exports: Optional[List[str]] = None  # for __all__, set after module creation
+    all_exports: list[str] | None = None  # for __all__, set after module creation
 
     @property
-    def symbol_names(self) -> Set[str]:
+    def symbol_names(self) -> set[str]:
         """Computed property extracting {s.name for s in self.symbols}.
         Returns Set[str] of symbol names, not full Symbol objects.
         Downstream code uses this for membership checks without needing
@@ -115,9 +116,9 @@ class Cluster:
     """A group of symbols that should live together."""
 
     name: str
-    symbols: Set[str] = field(default_factory=set)
-    internal_deps: List[Dependency] = field(default_factory=list)
-    external_deps: List[Dependency] = field(default_factory=list)
+    symbols: set[str] = field(default_factory=set)
+    internal_deps: list[Dependency] = field(default_factory=list)
+    external_deps: list[Dependency] = field(default_factory=list)
 
     @property
     def is_self_contained(self) -> bool:
@@ -132,8 +133,8 @@ class Cluster:
 class ModularizationResult:
     """Output of the full modularization pipeline."""
 
-    modules: List[Module] = field(default_factory=list)
-    clusters: List[Cluster] = field(default_factory=list)
-    preserved_exports: Set[str] = field(default_factory=set)
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    modules: list[Module] = field(default_factory=list)
+    clusters: list[Cluster] = field(default_factory=list)
+    preserved_exports: set[str] = field(default_factory=set)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)

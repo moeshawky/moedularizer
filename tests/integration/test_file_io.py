@@ -486,7 +486,13 @@ def baz():
 
 def test_generator_cross_module_imports():
     """G-CTX: Cross-module imports are generated for external_deps."""
-    from moedularizer.types import Cluster, Dependency, DependencyType, Symbol, SymbolKind
+    from moedularizer.types import (
+        Cluster,
+        Dependency,
+        DependencyType,
+        Symbol,
+        SymbolKind,
+    )
 
     cluster_a = Cluster(name="module_a", symbols={"foo"})
     cluster_a.external_deps = [

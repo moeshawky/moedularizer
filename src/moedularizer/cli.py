@@ -55,10 +55,15 @@ Examples:
     )
     parser.add_argument("output_dir", type=Path, help="Directory for the generated package")
     parser.add_argument(
-        "--package-name", required=True, help="Package name for imports (e.g. 'providers.registry')"
+        "--package-name",
+        required=True,
+        help="Package name for imports (e.g. 'providers.registry')",
     )
     parser.add_argument(
-        "--max-symbols", type=int, default=10, help="Maximum symbols per module (default: 10)"
+        "--max-symbols",
+        type=int,
+        default=10,
+        help="Maximum symbols per module (default: 10)",
     )
     parser.add_argument(
         "--separate-dataclasses",
@@ -105,7 +110,9 @@ Examples:
     parser.add_argument("--dry-run", action="store_true", help="Print plan without writing files")
     parser.add_argument("--verbose", action="store_true", help="Print detailed information")
     parser.add_argument(
-        "--no-backup", action="store_true", help="Don't backup existing files before overwriting"
+        "--no-backup",
+        action="store_true",
+        help="Don't backup existing files before overwriting",
     )
     parser.add_argument(
         "--imodent",

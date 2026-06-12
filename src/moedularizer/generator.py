@@ -11,18 +11,23 @@ import filtering via regex with string-literal stripping
 source to disk with backup. Imports types.py symbols, config.py
 (MoedularizerConfig), and dependency.py (DependencyGraph)."""
 
-import re
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from __future__ import annotations
 
-from moedularizer.config import MoedularizerConfig
-from moedularizer.dependency import DependencyGraph
+import re
+from typing import TYPE_CHECKING, Any
+
 from moedularizer.types import (
     Cluster,
     Module,
     Symbol,
     SymbolKind,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from moedularizer.config import MoedularizerConfig
+    from moedularizer.dependency import DependencyGraph
 
 
 class CodeGenerator:
@@ -39,15 +44,15 @@ class CodeGenerator:
 
     def generate(
         self,
-        clusters: List[Cluster],
-        symbol_map: Dict[str, Symbol],
-        cluster_map: Dict[str, str],
-        external_imports: Dict[str, List[str]],
+        clusters: list[Cluster],
+        symbol_map: dict[str, Symbol],
+        cluster_map: dict[str, str],
+        external_imports: dict[str, list[str]],
         source: str,
-        dunder_all: Optional[List[str]] = None,
-        graph: Optional[DependencyGraph] = None,
-        imodent_report: Optional[Any] = None,  # ImodentReport | None
-    ) -> List[Module]:
+        dunder_all: list[str] | None = None,
+        graph: DependencyGraph | None = None,
+        imodent_report: Any | None = None,  # ImodentReport | None
+    ) -> list[Module]:
         """Generate modules from clusters.
 
         Parameters:
@@ -117,7 +122,7 @@ class CodeGenerator:
             )
 
         # Compute auto-exports: all public non-IMPORT symbols across all clusters
-        auto_exports_set: Set[str] = {
+        auto_exports_set: set[str] = {
             s.name
             for s in symbol_map.values()
             if not s.name.startswith("_") and s.kind != SymbolKind.IMPORT
@@ -201,7 +206,7 @@ class CodeGenerator:
             return f"Module {module.name} — {', '.join(parts)}."
         return f"Module {module.name}."
 
-    def _add_imports(self, module: Module, lines: List[str]) -> None:
+    def _add_imports(self, module: Module, lines: list[str]) -> None:
         """Add import statements.
 
         stdlib_modules is a hardcoded set — only checks the first component
@@ -300,7 +305,7 @@ class CodeGenerator:
             for imp_str in sorted(module.imports_needed):
                 lines.append(imp_str)
 
-    def write_modules(self, modules: List[Module], output_dir: Path) -> List[Path]:
+    def write_modules(self, modules: list[Module], output_dir: Path) -> list[Path]:
         """Write all modules to disk."""
         if self.config.dry_run:
             return []
@@ -324,14 +329,18 @@ class CodeGenerator:
 
     def _filter_imports_for_module(
         self,
-        symbols: List[Symbol],
-        external_imports: Dict[str, List[str]],
+        symbols: list[Symbol],
+        external_imports: dict[str, list[str]],
         source: str,
-    ) -> List[Tuple[str, List[str]]]:
+    ) -> list[tuple[str, list[str]]]:
         """Filter external imports to only those used by this module's symbols.
 
-        String literal stripping at lines 282-285 uses regex that does not
-        handle escaped quotes inside strings or nested triple-quoted strings.
+        Strips string literals from symbol source before matching imported
+        names — prevents false positives where an import name appears inside
+        a string (e.g., "json" in ".json" file extension). Escaped quotes
+        inside strings (e.g., ``\"``) are handled by backslash-aware regex.
+        Triple-quoted strings (``\"\"\"`` and ``'''``) are stripped first
+        via DOTALL patterns.
         """
         symbol_source = "\n".join(s.source for s in symbols if s.source)
 
@@ -339,8 +348,9 @@ class CodeGenerator:
         # e.g. "json" inside ".json" file extension
         stripped = re.sub(r'""".*?"""', "", symbol_source, flags=re.DOTALL)
         stripped = re.sub(r"'''.*?'''", "", stripped, flags=re.DOTALL)
-        stripped = re.sub(r'"[^"]*"', '""', stripped)
-        stripped = re.sub(r"'[^']*'", "''", stripped)
+        # Handle escaped quotes inside strings (e.g., "hello \"world\"")
+        stripped = re.sub(r'"(?:[^"\\]|\\.)*"', '""', stripped)
+        stripped = re.sub(r"'(?:[^'\\]|\\.)*'", "''", stripped)
 
         used_names = set()
         for module_path, names in external_imports.items():
@@ -351,7 +361,7 @@ class CodeGenerator:
                     used_names.add((module_path, name))
 
         # Rebuild dict grouped by module_path
-        filtered: Dict[str, List[str]] = {}
+        filtered: dict[str, list[str]] = {}
         for module_path, name in used_names:
             filtered.setdefault(module_path, []).append(name)
 

@@ -27,7 +27,15 @@ def test_imports_exist():
     assert MoedularizerConfig is not None
 
     # Test submodules
-    from moedularizer import analyzer, clusterer, config, dependency, generator, types, validator
+    from moedularizer import (
+        analyzer,
+        clusterer,
+        config,
+        dependency,
+        generator,
+        types,
+        validator,
+    )
 
     assert analyzer is not None
     assert clusterer is not None
